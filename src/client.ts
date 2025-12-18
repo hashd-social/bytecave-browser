@@ -98,7 +98,7 @@ export class ByteCaveClient {
           identify: identify(),
           pubsub: gossipsub({
             emitSelf: false,
-            allowPublishToZeroTopicPeers: true
+            allowPublishToZeroTopicPeers: false
           })
         },
         peerDiscovery: bootstrapPeers.length > 0 ? [
