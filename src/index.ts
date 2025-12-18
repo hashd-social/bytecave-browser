@@ -7,6 +7,11 @@
 
 export { ByteCaveClient } from './client.js';
 export { ContractDiscovery } from './discovery.js';
+export { p2pProtocolClient } from './p2p-protocols.js';
+export type { 
+  P2PHealthResponse,
+  P2PInfoResponse 
+} from './p2p-protocols.js';
 export type { 
   ByteCaveConfig, 
   PeerInfo, 

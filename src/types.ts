@@ -3,10 +3,9 @@
  */
 
 export interface ByteCaveConfig {
-  contractAddress: string;
-  rpcUrl: string;
-  bootstrapWebSocket?: string;
-  seedNodes?: string[];
+  contractAddress?: string; // Optional - required for node registration verification
+  rpcUrl?: string; // Optional - required if contractAddress is provided
+  relayPeers?: string[]; // Relay node multiaddrs for pure P2P discovery
   maxPeers?: number;
   connectionTimeout?: number;
 }

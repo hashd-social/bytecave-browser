@@ -16,6 +16,7 @@ import { bootstrap } from '@libp2p/bootstrap';
 import { multiaddr } from '@multiformats/multiaddr';
 import { fromString, toString } from 'uint8arrays';
 import { ContractDiscovery } from './discovery.js';
+import { p2pProtocolClient } from './p2p-protocols.js';
 import type { 
   ByteCaveConfig, 
   PeerInfo, 
@@ -30,7 +31,7 @@ const SIGNALING_TOPIC_PREFIX = 'bytecave-signaling-';
 
 export class ByteCaveClient {
   private node: Libp2p | null = null;
-  private discovery: ContractDiscovery;
+  private discovery?: ContractDiscovery; // Optional - only if contract address provided
   private config: ByteCaveConfig;
   private knownPeers: Map<string, PeerInfo> = new Map();
   private connectionState: ConnectionState = 'disconnected';
@@ -42,7 +43,10 @@ export class ByteCaveClient {
       connectionTimeout: 30000,
       ...config
     };
-    this.discovery = new ContractDiscovery(config.contractAddress, config.rpcUrl);
+    // Only initialize contract discovery if contract address is provided
+    if (config.contractAddress && config.rpcUrl) {
+      this.discovery = new ContractDiscovery(config.contractAddress, config.rpcUrl);
+    }
   }
 
   /**
@@ -60,36 +64,15 @@ export class ByteCaveClient {
     try {
       const bootstrapPeers: string[] = [];
 
-      // If we have a WebSocket bootstrap URL, use it directly
-      if (this.config.bootstrapWebSocket) {
-        console.log('[ByteCave] Using configured bootstrap WebSocket:', this.config.bootstrapWebSocket);
-        bootstrapPeers.push(this.config.bootstrapWebSocket);
+      // Use relay peers for pure P2P discovery (no HTTP)
+      if (this.config.relayPeers && this.config.relayPeers.length > 0) {
+        console.log('[ByteCave] Using configured relay peers:', this.config.relayPeers);
+        bootstrapPeers.push(...this.config.relayPeers);
+      } else {
+        console.warn('[ByteCave] No relay peers configured - peer discovery may be limited');
       }
 
-      // Try seed nodes first (before contract lookup - allows discovery without registration)
-      if (this.config.seedNodes && this.config.seedNodes.length > 0) {
-        console.log('[ByteCave] Fetching multiaddrs from seed nodes:', this.config.seedNodes);
-        for (const seedUrl of this.config.seedNodes) {
-          const wsAddrs = await this.fetchNodeMultiaddrs(seedUrl);
-          bootstrapPeers.push(...wsAddrs);
-        }
-      }
-
-      // Also try registered nodes from contract
-      console.log('[ByteCave] Fetching registered nodes from contract...');
-      const registeredNodes = await this.discovery.getActiveNodes();
-      console.log('[ByteCave] Found', registeredNodes.length, 'registered nodes');
-
-      // Fetch WebSocket multiaddrs from registered nodes for bootstrapping
-      for (const node of registeredNodes.slice(0, 3)) {
-        console.log('[ByteCave] Fetching multiaddrs from registered node:', node.url);
-        const wsAddrs = await this.fetchNodeMultiaddrs(node.url);
-        bootstrapPeers.push(...wsAddrs);
-      }
-
-      // Deduplicate
-      const uniquePeers = [...new Set(bootstrapPeers)];
-      console.log('[ByteCave] Bootstrap peers:', uniquePeers);
+      console.log('[ByteCave] Bootstrap peers:', bootstrapPeers);
 
       // Create libp2p node with WebRTC transport
       this.node = await createLibp2p({
@@ -133,37 +116,32 @@ export class ByteCaveClient {
       await this.node.start();
       console.log('[ByteCave] Node started with peerId:', this.node.peerId.toString());
 
-      // Manually dial bootstrap peers - only try localhost addresses to avoid timeout
-      const localAddrs = uniquePeers.filter(addr => 
-        addr.includes('127.0.0.1') || addr.includes('localhost')
-      );
-      console.log('[ByteCave] Attempting to dial local addresses:', localAddrs);
+      // Dial relay peers to bootstrap P2P discovery
+      console.log('[ByteCave] Attempting to dial relay peers:', bootstrapPeers);
       
-      for (const addr of localAddrs.slice(0, 3)) { // Only try first 3 to avoid long waits
+      for (const addr of bootstrapPeers) {
         try {
-          console.log('[ByteCave] Dialing:', addr);
+          console.log('[ByteCave] Dialing relay:', addr);
           const ma = multiaddr(addr);
           const connection = await this.node.dial(ma as any);
-          console.log('[ByteCave] ✓ Connected to:', addr, 'remotePeer:', connection.remotePeer.toString());
+          console.log('[ByteCave] ✓ Connected to relay:', addr, 'remotePeer:', connection.remotePeer.toString());
         } catch (err: any) {
-          console.error('[ByteCave] ✗ Failed to dial:', addr, 'Error:', err.message || err);
+          console.error('[ByteCave] ✗ Failed to dial relay:', addr, 'Error:', err.message || err);
         }
       }
 
       const connectedPeers = this.node.getPeers();
-      console.log('[ByteCave] Connected peers after dial:', connectedPeers.length, connectedPeers.map(p => p.toString()));
+      console.log('[ByteCave] Connected peers after relay dial:', connectedPeers.length, connectedPeers.map(p => p.toString()));
+
+      // Initialize P2P protocol client with the libp2p node
+      p2pProtocolClient.setNode(this.node);
 
       this.setConnectionState('connected');
       console.log('[ByteCave] Client started', {
         peerId: this.node.peerId.toString(),
-        registeredNodes: registeredNodes.length,
+        relayPeers: bootstrapPeers.length,
         connectedPeers: connectedPeers.length
       });
-
-      // Try to connect to registered nodes via HTTP discovery
-      for (const node of registeredNodes.slice(0, this.config.maxPeers)) {
-        this.tryConnectToNode(node.url);
-      }
 
     } catch (error) {
       this.setConnectionState('error');
@@ -186,19 +164,43 @@ export class ByteCaveClient {
   }
 
   /**
-   * Store ciphertext on a node
+   * Store ciphertext on a node - tries P2P first, falls back to HTTP
    */
-  async store(data: Uint8Array, contentType: string = 'messages'): Promise<StoreResult> {
-    // Find a peer that accepts this content type
-    const peer = this.findPeerForContentType(contentType);
-    
+  async store(data: Uint8Array | ArrayBuffer, contentType?: string): Promise<StoreResult> {
+    const peer = this.findPeerForContentType(contentType || 'media');
     if (!peer) {
-      return { success: false, error: 'No available peers for content type: ' + contentType };
+      return { success: false, error: 'No connected peers available' };
     }
 
+    const dataArray = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+
+    // Try P2P stream first
+    if (peer.connected) {
+      try {
+        console.log('[ByteCave] Attempting P2P store to peer:', peer.peerId);
+        const result = await p2pProtocolClient.storeToPeer(
+          peer.peerId,
+          dataArray,
+          'application/octet-stream',
+          contentType
+        );
+
+        if (result.success && result.cid) {
+          console.log('[ByteCave] P2P store successful:', result.cid);
+          return { 
+            success: true, 
+            cid: result.cid, 
+            peerId: peer.peerId 
+          };
+        }
+        console.log('[ByteCave] P2P store failed, trying HTTP fallback:', result.error);
+      } catch (error: any) {
+        console.log('[ByteCave] P2P store error, trying HTTP fallback:', error.message);
+      }
+    }
+
+    // HTTP fallback
     try {
-      // For now, fall back to HTTP until WebRTC streams are fully implemented
-      // This will be replaced with direct WebRTC DataChannel communication
       const httpEndpoint = this.getHttpEndpoint(peer.peerId);
       if (!httpEndpoint) {
         return { success: false, error: 'No HTTP endpoint for peer' };
@@ -227,13 +229,27 @@ export class ByteCaveClient {
   }
 
   /**
-   * Retrieve ciphertext from a node
+   * Retrieve ciphertext from a node - tries P2P first, falls back to HTTP
    */
   async retrieve(cid: string): Promise<RetrieveResult> {
     // Try each known peer until we find the blob
     for (const peer of this.knownPeers.values()) {
       if (!peer.connected) continue;
 
+      // Try P2P stream first
+      try {
+        console.log('[ByteCave] Attempting P2P retrieve from peer:', peer.peerId);
+        const result = await p2pProtocolClient.retrieveFromPeer(peer.peerId, cid);
+        
+        if (result) {
+          console.log('[ByteCave] P2P retrieve successful');
+          return { success: true, data: result.data, peerId: peer.peerId };
+        }
+      } catch (error: any) {
+        console.log('[ByteCave] P2P retrieve failed, trying HTTP:', error.message);
+      }
+
+      // HTTP fallback
       try {
         const httpEndpoint = this.getHttpEndpoint(peer.peerId);
         if (!httpEndpoint) continue;
@@ -299,6 +315,37 @@ export class ByteCaveClient {
    */
   getConnectedPeerCount(): number {
     return this.node ? this.node.getPeers().length : 0;
+  }
+
+  /**
+   * Get node info from a peer via P2P stream (for registration)
+   */
+  async getNodeInfo(peerId: string): Promise<{ publicKey: string; ownerAddress?: string; peerId: string } | null> {
+    try {
+      const info = await p2pProtocolClient.getInfoFromPeer(peerId);
+      return info;
+    } catch (error: any) {
+      console.warn('[ByteCave] Failed to get node info via P2P:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get health info from a peer via P2P stream
+   */
+  async getNodeHealth(peerId: string): Promise<{
+    status: string;
+    blobCount: number;
+    storageUsed: number;
+    uptime: number;
+  } | null> {
+    try {
+      const health = await p2pProtocolClient.getHealthFromPeer(peerId);
+      return health;
+    } catch (error: any) {
+      console.warn('[ByteCave] Failed to get node health via P2P:', error.message);
+      return null;
+    }
   }
 
   /**
@@ -430,6 +477,11 @@ export class ByteCaveClient {
    * Check if a peer's URL is registered in the on-chain registry
    */
   private async checkPeerRegistration(httpUrl: string): Promise<boolean> {
+    if (!this.discovery) {
+      // No contract configured - skip registration check
+      return true;
+    }
+    
     try {
       const registeredNodes = await this.discovery.getActiveNodes();
       return registeredNodes.some(node => node.url === httpUrl);
@@ -495,55 +547,4 @@ export class ByteCaveClient {
     return peer?.httpEndpoint || null;
   }
 
-  /**
-   * Fetch WebSocket multiaddrs from a node's HTTP health endpoint
-   */
-  private async fetchNodeMultiaddrs(url: string): Promise<string[]> {
-    try {
-      console.log('[ByteCave] Fetching multiaddrs from:', url);
-      const response = await fetch(`${url}/health`, {
-        signal: AbortSignal.timeout(5000)
-      });
-      if (response.ok) {
-        const health = await response.json();
-        if (health.multiaddrs && Array.isArray(health.multiaddrs)) {
-          // Find WebSocket addresses for browser connectivity
-          const wsAddrs = health.multiaddrs.filter((addr: string) => 
-            addr.includes('/ws/') || addr.includes('/wss/')
-          );
-          console.log('[ByteCave] Found WebSocket addrs from', url, ':', wsAddrs);
-          return wsAddrs;
-        }
-      }
-    } catch (error) {
-      console.warn('[ByteCave] Failed to fetch multiaddrs from', url, ':', error);
-    }
-    return [];
-  }
-
-  private async tryConnectToNode(url: string): Promise<void> {
-    // Try to get peer info from HTTP endpoint
-    try {
-      const response = await fetch(`${url}/health`, {
-        signal: AbortSignal.timeout(5000)
-      });
-      
-      if (response.ok) {
-        const health = await response.json();
-        if (health.peerId) {
-          const peerInfo: PeerInfo = {
-            peerId: health.peerId,
-            publicKey: health.publicKey || '',
-            contentTypes: 'all',
-            connected: false
-          };
-          (peerInfo as any).httpEndpoint = url;
-          this.knownPeers.set(health.peerId, peerInfo);
-          this.emit('peerDiscovered', peerInfo);
-        }
-      }
-    } catch (error) {
-      // Node not reachable via HTTP
-    }
-  }
 }
