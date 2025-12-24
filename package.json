@@ -29,6 +29,7 @@
   "author": "HASHD Team",
   "license": "MIT",
   "dependencies": {
+    "@libp2p/floodsub": "^11.0.10",
     "ethers": "^6.0.0",
     "uint8arrays": "^5.0.0"
   },

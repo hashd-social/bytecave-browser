@@ -10,7 +10,7 @@ import { webSockets } from '@libp2p/websockets';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
-import { gossipsub } from '@chainsafe/libp2p-gossipsub';
+import { floodsub } from '@libp2p/floodsub';
 import { identify } from '@libp2p/identify';
 import { bootstrap } from '@libp2p/bootstrap';
 import { multiaddr } from '@multiformats/multiaddr';
@@ -96,10 +96,7 @@ export class ByteCaveClient {
         },
         services: {
           identify: identify(),
-          pubsub: gossipsub({
-            emitSelf: false,
-            allowPublishToZeroTopicPeers: false
-          })
+          pubsub: floodsub()
         },
         peerDiscovery: bootstrapPeers.length > 0 ? [
           bootstrap({ list: bootstrapPeers })
