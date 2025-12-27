@@ -268,7 +268,7 @@ export class ByteCaveClient {
   /**
    * Get list of known peers (includes both announced peers and connected libp2p peers)
    */
-  getPeers(): PeerInfo[] {
+  async getPeers(): Promise<PeerInfo[]> {
     // Get the set of currently connected peer IDs
     const connectedPeerIds = new Set<string>();
     if (this.node) {
@@ -295,11 +295,38 @@ export class ByteCaveClient {
     
     // Add any connected peers not in knownPeers
     for (const peerIdStr of connectedPeerIds) {
+      // Try to get HTTP URL from peer's metadata via identify protocol
+      let httpUrl: string | undefined;
+      
+      try {
+        const peerId = this.node!.getPeers().find(p => p.toString() === peerIdStr);
+        if (peerId) {
+          const peer = await this.node!.peerStore.get(peerId);
+          console.log(`[ByteCave] Peer ${peerIdStr.slice(0, 12)} metadata:`, peer.metadata ? Array.from(peer.metadata.keys()) : 'none');
+          
+          // Look for HTTP metadata in peer's metadata
+          if (peer.metadata) {
+            const httpUrlBytes = peer.metadata.get('httpUrl');
+            if (httpUrlBytes) {
+              httpUrl = toString(httpUrlBytes);
+              console.log(`[ByteCave] Found HTTP URL for peer ${peerIdStr.slice(0, 12)}: ${httpUrl}`);
+            } else {
+              console.log(`[ByteCave] No httpUrl in metadata for peer ${peerIdStr.slice(0, 12)}`);
+            }
+          } else {
+            console.log(`[ByteCave] No metadata for peer ${peerIdStr.slice(0, 12)}`);
+          }
+        }
+      } catch (err) {
+        console.warn(`[ByteCave] Failed to get peer metadata for ${peerIdStr.slice(0, 12)}:`, err);
+      }
+      
       result.push({
         peerId: peerIdStr,
         publicKey: '',
         contentTypes: 'all',
-        connected: true
+        connected: true,
+        httpUrl
       });
     }
     
