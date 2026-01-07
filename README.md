@@ -4,6 +4,7 @@ Browser-compatible P2P client library for connecting to the ByteCave decentraliz
 
 ## Features
 
+- **Fast Node Discovery** - Discover storage nodes in 1-2 seconds via relay peer directory
 - **Pure P2P Discovery** - Connect via relay nodes, no HTTP required
 - **WebRTC Support** - Direct browser-to-node connections
 - **WebSocket Fallback** - Relay-based connections for NAT traversal
@@ -239,6 +240,18 @@ const client = new ByteCaveClient({
 
 ## How It Works
 
+### Fast Discovery via Peer Directory
+
+On startup, the browser queries the relay's peer directory protocol for instant node discovery:
+
+1. **Connect to Relay** - Browser connects to relay via WebSocket
+2. **Query Peer Directory** - Browser dials `/bytecave/relay/peers/1.0.0` protocol
+3. **Receive Peer List** - Relay responds with list of storage nodes and circuit relay addresses
+4. **Dial Nodes** - Browser dials each node through the relay
+5. **Fetch Health Data** - Immediate health check via P2P protocol
+
+**Discovery time: 1-2 seconds** (down from 2+ minutes with gossip-only)
+
 ### Pure P2P Discovery
 
 1. **Connect to Relay** - Browser connects to relay via WebSocket
@@ -251,11 +264,13 @@ const client = new ByteCaveClient({
 
 - ✅ No HTTP health endpoint calls
 - ✅ No HTTP multiaddr fetching
-- ✅ Pure libp2p protocols (Gossipsub, DHT)
+- ✅ Pure libp2p protocols (Peer Directory, Gossipsub, DHT)
 - ✅ Works entirely over P2P network
 
 ## Protocols
 
+- **Peer Directory** (`/bytecave/relay/peers/1.0.0`) - Fast node discovery
+- **Health Protocol** (`/bytecave/health/1.0.0`) - Node health checks
 - **WebSocket** - Browser to relay connection
 - **WebRTC** - Direct browser-to-node connections
 - **Circuit Relay v2** - NAT traversal

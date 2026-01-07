@@ -7,14 +7,16 @@
  * - /bytecave/info/1.0.0 - Node info (for registration)
  */
 
-import { pipe } from 'it-pipe';
-import type { Libp2p } from 'libp2p';
-import * as lp from 'it-length-prefixed';
+import { Libp2p } from 'libp2p';
+import type { Stream } from '@libp2p/interface';
+import { fromString, toString } from 'uint8arrays';
+import { peerIdFromString } from '@libp2p/peer-id';
 
 // Protocol identifiers - must match bytecave-core
 export const PROTOCOL_BLOB = '/bytecave/blob/1.0.0';
 export const PROTOCOL_HEALTH = '/bytecave/health/1.0.0';
 export const PROTOCOL_INFO = '/bytecave/info/1.0.0';
+export const PROTOCOL_PEER_DIRECTORY = '/bytecave/relay/peers/1.0.0';
 
 // Response types
 export interface BlobResponse {
@@ -32,8 +34,16 @@ export interface P2PHealthResponse {
   storageMax: number;
   uptime: number;
   version: string;
-  contentTypes: string[] | 'all';
   multiaddrs: string[];
+  nodeId?: string;
+  publicKey?: string;
+  ownerAddress?: string;
+  contentTypes?: string[] | 'all';
+  metrics?: {
+    requestsLastHour: number;
+    avgResponseTime: number;
+    successRate: number;
+  };
 }
 
 export interface P2PInfoResponse {
@@ -42,6 +52,15 @@ export interface P2PInfoResponse {
   ownerAddress?: string;
   version: string;
   contentTypes: string[] | 'all';
+}
+
+export interface PeerDirectoryResponse {
+  peers: Array<{
+    peerId: string;
+    multiaddrs: string[];
+    lastSeen: number;
+  }>;
+  timestamp: number;
 }
 
 export interface StoreRequest {
@@ -147,19 +166,67 @@ export class P2PProtocolClient {
    * Get health info from a peer via P2P stream
    */
   async getHealthFromPeer(peerId: string): Promise<P2PHealthResponse | null> {
-    if (!this.node) return null;
+    if (!this.node) {
+      console.warn('[ByteCave P2P] No node available for health request');
+      return null;
+    }
 
     try {
-      const stream = await this.node.dialProtocol(peerId as any, PROTOCOL_HEALTH);
+      console.log(`[ByteCave P2P] Dialing health protocol for peer ${peerId.slice(0, 12)}...`);
+      
+      // Convert string peerId to PeerId object
+      const peerIdObj = peerIdFromString(peerId);
+      
+      console.log(`[ByteCave P2P] Opening stream to peer ${peerId.slice(0, 12)}...`);
+      const stream = await this.node.dialProtocol(peerIdObj, PROTOCOL_HEALTH);
+      console.log(`[ByteCave P2P] Health protocol stream opened for ${peerId.slice(0, 12)}`);
 
       await this.writeMessage(stream, {});
+      console.log(`[ByteCave P2P] Health request sent to ${peerId.slice(0, 12)}`);
+      
       const response = await this.readMessage<P2PHealthResponse>(stream);
-
+      
+      if (response) {
+        console.log(`[ByteCave P2P] Health response received from ${peerId.slice(0, 12)}:`, JSON.stringify(response, null, 2));
+      }
+      
       await stream.close();
       return response;
 
     } catch (error: any) {
-      console.warn('[ByteCave P2P] Failed to get health from peer:', peerId, error.message);
+      console.error('[ByteCave P2P] Failed to get health from peer:', peerId.slice(0, 12), error);
+      return null;
+    }
+  }
+
+  /**
+   * Query relay for peer directory
+   */
+  async getPeerDirectoryFromRelay(relayPeerId: string): Promise<PeerDirectoryResponse | null> {
+    if (!this.node) {
+      console.warn('[ByteCave P2P] No node available for peer directory request');
+      return null;
+    }
+
+    try {
+      console.log('[ByteCave P2P] Querying relay for peer directory:', relayPeerId.slice(0, 12) + '...');
+      
+      const peerIdObj = peerIdFromString(relayPeerId);
+      const stream = await this.node.dialProtocol(peerIdObj, PROTOCOL_PEER_DIRECTORY);
+      
+      // Relay sends response immediately, just read it
+      const response = await this.readMessage<PeerDirectoryResponse>(stream);
+      
+      await stream.close();
+      
+      if (response) {
+        console.log('[ByteCave P2P] Received peer directory:', response.peers.length, 'peers');
+      }
+      
+      return response;
+
+    } catch (error: any) {
+      console.warn('[ByteCave P2P] Failed to get peer directory from relay:', relayPeerId.slice(0, 12), error.message);
       return null;
     }
   }
@@ -171,7 +238,10 @@ export class P2PProtocolClient {
     if (!this.node) return null;
 
     try {
-      const stream = await this.node.dialProtocol(peerId as any, PROTOCOL_INFO);
+      // Convert string peerId to PeerId object
+      const peerIdObj = peerIdFromString(peerId);
+      
+      const stream = await this.node.dialProtocol(peerIdObj, PROTOCOL_INFO);
 
       await this.writeMessage(stream, {});
       const response = await this.readMessage<P2PInfoResponse>(stream);
@@ -185,35 +255,78 @@ export class P2PProtocolClient {
     }
   }
 
-  // Stream utilities
+  // Stream utilities - custom length-prefixed encoding
   private async readMessage<T>(stream: any): Promise<T | null> {
     try {
-      const chunks: Uint8Array[] = [];
-
-      for await (const chunk of pipe(stream.source, lp.decode)) {
-        chunks.push(chunk.subarray());
-        break; // Only read first message
+      // Read length prefix (4 bytes, big-endian)
+      const lengthBytes = new Uint8Array(4);
+      let bytesRead = 0;
+      
+      // Stream is AsyncIterable itself, not stream.source
+      for await (const chunk of stream) {
+        const chunkArray = chunk instanceof Uint8Array ? chunk : chunk.subarray();
+        const bytesToCopy = Math.min(4 - bytesRead, chunkArray.length);
+        lengthBytes.set(chunkArray.subarray(0, bytesToCopy), bytesRead);
+        bytesRead += bytesToCopy;
+        
+        if (bytesRead >= 4) {
+          // Read message length
+          const length = new DataView(lengthBytes.buffer).getUint32(0, false);
+          
+          // Read message data
+          const messageBytes = new Uint8Array(length);
+          let messageBytesRead = 0;
+          
+          // Copy remaining bytes from first chunk
+          if (chunkArray.length > bytesToCopy) {
+            const remainingBytes = chunkArray.subarray(bytesToCopy);
+            const copyLength = Math.min(remainingBytes.length, length);
+            messageBytes.set(remainingBytes.subarray(0, copyLength), 0);
+            messageBytesRead = copyLength;
+          }
+          
+          // Read more chunks if needed
+          if (messageBytesRead < length) {
+            for await (const nextChunk of stream) {
+              const nextArray = nextChunk instanceof Uint8Array ? nextChunk : nextChunk.subarray();
+              const copyLength = Math.min(nextArray.length, length - messageBytesRead);
+              messageBytes.set(nextArray.subarray(0, copyLength), messageBytesRead);
+              messageBytesRead += copyLength;
+              if (messageBytesRead >= length) break;
+            }
+          }
+          
+          const data = new TextDecoder().decode(messageBytes);
+          return JSON.parse(data) as T;
+        }
       }
 
-      if (chunks.length === 0) return null;
-
-      const data = new TextDecoder().decode(chunks[0]);
-      return JSON.parse(data) as T;
-
+      return null;
     } catch (error: any) {
-      console.debug('[ByteCave P2P] Failed to read message:', error.message);
+      console.error('[ByteCave P2P] Failed to read message:', error);
       return null;
     }
   }
 
   private async writeMessage(stream: any, message: any): Promise<void> {
     const data = new TextEncoder().encode(JSON.stringify(message));
-
-    await pipe(
-      [data],
-      lp.encode,
-      stream.sink
-    );
+    
+    // Create length prefix (4 bytes, big-endian)
+    const lengthPrefix = new Uint8Array(4);
+    new DataView(lengthPrefix.buffer).setUint32(0, data.length, false);
+    
+    // Combine length prefix and data
+    const combined = new Uint8Array(lengthPrefix.length + data.length);
+    combined.set(lengthPrefix, 0);
+    combined.set(data, lengthPrefix.length);
+    
+    // Write to stream using send() method
+    const needsDrain = !stream.send(combined);
+    
+    // If send returned false, wait for drain event
+    if (needsDrain) {
+      await stream.onDrain();
+    }
   }
 
   // Base64 utilities for browser
