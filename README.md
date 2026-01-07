@@ -8,7 +8,7 @@ Browser-compatible P2P client library for connecting to the ByteCave decentraliz
 - **Pure P2P Discovery** - Connect via relay nodes, no HTTP required
 - **WebRTC Support** - Direct browser-to-node connections
 - **WebSocket Fallback** - Relay-based connections for NAT traversal
-- **Gossipsub** - Peer announcements and discovery
+- **FloodSub** - Peer announcements and discovery
 - **Contract Integration** - On-chain node registry support
 - **TypeScript** - Full type safety
 
@@ -255,7 +255,7 @@ On startup, the browser queries the relay's peer directory protocol for instant 
 ### Pure P2P Discovery
 
 1. **Connect to Relay** - Browser connects to relay via WebSocket
-2. **Announce Presence** - Node announces on Gossipsub `bytecave-announce` topic
+2. **Announce Presence** - Node announces on FloodSub `bytecave-announce` topic
 3. **Discover Peers** - DHT and pubsub discover other nodes through relay
 4. **Establish Connection** - Direct WebRTC or relayed connection
 5. **Store/Retrieve** - P2P protocols for data operations
@@ -264,7 +264,7 @@ On startup, the browser queries the relay's peer directory protocol for instant 
 
 - ✅ No HTTP health endpoint calls
 - ✅ No HTTP multiaddr fetching
-- ✅ Pure libp2p protocols (Peer Directory, Gossipsub, DHT)
+- ✅ Pure libp2p protocols (Peer Directory, FloodSub, DHT)
 - ✅ Works entirely over P2P network
 
 ## Protocols
@@ -274,7 +274,7 @@ On startup, the browser queries the relay's peer directory protocol for instant 
 - **WebSocket** - Browser to relay connection
 - **WebRTC** - Direct browser-to-node connections
 - **Circuit Relay v2** - NAT traversal
-- **Gossipsub** - Peer announcements
+- **FloodSub** - Peer announcements
 - **DHT** (via relay) - Distributed peer routing
 
 ## Browser Compatibility
