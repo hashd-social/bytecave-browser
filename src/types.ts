@@ -5,7 +5,8 @@
 export interface ByteCaveConfig {
   contractAddress?: string; // Optional - required for node registration verification
   rpcUrl?: string; // Optional - required if contractAddress is provided
-  relayPeers?: string[]; // Relay node multiaddrs for pure P2P discovery
+  directNodeAddrs?: string[]; // Direct node multiaddrs for WebRTC connections (no relay)
+  relayPeers?: string[]; // Relay node multiaddrs for circuit relay fallback
   maxPeers?: number;
   connectionTimeout?: number;
 }

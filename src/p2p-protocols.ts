@@ -17,6 +17,7 @@ export const PROTOCOL_BLOB = '/bytecave/blob/1.0.0';
 export const PROTOCOL_HEALTH = '/bytecave/health/1.0.0';
 export const PROTOCOL_INFO = '/bytecave/info/1.0.0';
 export const PROTOCOL_PEER_DIRECTORY = '/bytecave/relay/peers/1.0.0';
+export const PROTOCOL_HAVE_LIST = '/bytecave/have-list/1.0.0';
 
 // Response types
 export interface BlobResponse {
@@ -63,11 +64,22 @@ export interface PeerDirectoryResponse {
   timestamp: number;
 }
 
+export interface HaveListResponse {
+  cids: string[];
+  total: number;
+  hasMore: boolean;
+}
+
 export interface StoreRequest {
   cid: string;
   mimeType: string;
   ciphertext: string; // base64 encoded
+  appId?: string;
   contentType?: string;
+  sender?: string;
+  timestamp?: number;
+  metadata?: Record<string, any>;
+  authorization?: any;
 }
 
 export interface StoreResponse {
@@ -93,27 +105,36 @@ export class P2PProtocolClient {
     peerId: string,
     ciphertext: Uint8Array,
     mimeType: string,
-    contentType?: string
+    contentType?: string,
+    authorization?: any
   ): Promise<StoreResponse> {
     if (!this.node) {
       return { success: false, error: 'P2P node not initialized' };
     }
 
     try {
-      // Use the replicate protocol for storing (same format)
-      const stream = await this.node.dialProtocol(peerId as any, '/bytecave/replicate/1.0.0');
+      // Convert string peerId to PeerId object
+      const peerIdObj = peerIdFromString(peerId);
+      
+      // Use the store protocol for browser-to-node storage (with authorization)
+      const stream = await this.node.dialProtocol(peerIdObj, '/bytecave/store/1.0.0');
 
-      // Generate CID client-side (simplified - in production use proper CID generation)
-      const dataBuffer = new Uint8Array(ciphertext).buffer as ArrayBuffer;
-      const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+      // Generate CID using SHA-256 (matches bytecave-core format: 64-char hex)
+      const dataCopy = new Uint8Array(ciphertext);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', dataCopy);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const cid = 'baf' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 56);
+      const cid = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
       const request: StoreRequest = {
         cid,
         mimeType,
         ciphertext: this.uint8ArrayToBase64(ciphertext),
-        contentType
+        appId: authorization?.appId || 'hashd',
+        contentType: contentType || 'media',
+        sender: authorization?.sender,
+        timestamp: authorization?.timestamp || Date.now(),
+        metadata: {},
+        authorization
       };
 
       await this.writeMessage(stream, request);
@@ -137,19 +158,30 @@ export class P2PProtocolClient {
    * Retrieve a blob from a peer via P2P stream
    */
   async retrieveFromPeer(peerId: string, cid: string): Promise<{ data: Uint8Array; mimeType: string } | null> {
-    if (!this.node) return null;
+    if (!this.node) {
+      return null;
+    }
 
     try {
-      const stream = await this.node.dialProtocol(peerId as any, PROTOCOL_BLOB);
+      const peerIdObj = peerIdFromString(peerId);
+      const stream = await this.node.dialProtocol(peerIdObj, PROTOCOL_BLOB);
 
-      await this.writeMessage(stream, { cid });
+      const request = { cid };
+      await this.writeMessage(stream, request);
+      
       const response = await this.readMessage<BlobResponse>(stream);
 
-      await stream.close();
+      // Close stream (may already be closed by server)
+      try {
+        await stream.close();
+      } catch {
+        // Stream may already be closed by server
+      }
 
       if (response?.success && response.ciphertext) {
+        const data = this.base64ToUint8Array(response.ciphertext);
         return {
-          data: this.base64ToUint8Array(response.ciphertext),
+          data,
           mimeType: response.mimeType || 'application/octet-stream'
         };
       }
@@ -157,7 +189,10 @@ export class P2PProtocolClient {
       return null;
 
     } catch (error: any) {
-      console.warn('[ByteCave P2P] Failed to retrieve from peer:', peerId, error.message);
+      // Suppress expected errors
+      if (error.name !== 'StreamResetError' && error.code !== 'ERR_STREAM_RESET') {
+        console.error('[ByteCave P2P] Retrieve error:', error);
+      }
       return null;
     }
   }
@@ -186,9 +221,13 @@ export class P2PProtocolClient {
       
       const response = await this.readMessage<P2PHealthResponse>(stream);
       
+      // if (response) {
+      //   console.log(`[ByteCave P2P] Health response received from ${peerId.slice(0, 12)}:`, JSON.stringify(response, null, 2));
+      // }
+
       if (response) {
-        console.log(`[ByteCave P2P] Health response received from ${peerId.slice(0, 12)}:`, JSON.stringify(response, null, 2));
-      }
+        console.log(`[ByteCave P2P] Health response received from ${peerId.slice(0, 12)}:`);
+      }      
       
       await stream.close();
       return response;
@@ -255,55 +294,86 @@ export class P2PProtocolClient {
     }
   }
 
+  /**
+   * Check if a peer has a specific CID
+   */
+  async peerHasCid(peerId: string, cid: string): Promise<boolean> {
+    if (!this.node) {
+      return false;
+    }
+
+    try {
+      const peerIdObj = peerIdFromString(peerId);
+      const stream = await this.node.dialProtocol(peerIdObj, PROTOCOL_HAVE_LIST);
+
+      const request = { cids: [cid] };
+      await this.writeMessage(stream, request);
+      
+      const response = await this.readMessage<HaveListResponse>(stream);
+
+      await stream.close();
+
+      return response?.cids?.includes(cid) || false;
+    } catch (error: any) {
+      return false;
+    }
+  }
+
   // Stream utilities - custom length-prefixed encoding
   private async readMessage<T>(stream: any): Promise<T | null> {
     try {
-      // Read length prefix (4 bytes, big-endian)
-      const lengthBytes = new Uint8Array(4);
-      let bytesRead = 0;
+      let firstChunk = true;
+      let length = 0;
+      let messageBytes: Uint8Array | null = null;
+      let messageBytesRead = 0;
       
-      // Stream is AsyncIterable itself, not stream.source
       for await (const chunk of stream) {
-        const chunkArray = chunk instanceof Uint8Array ? chunk : chunk.subarray();
-        const bytesToCopy = Math.min(4 - bytesRead, chunkArray.length);
-        lengthBytes.set(chunkArray.subarray(0, bytesToCopy), bytesRead);
-        bytesRead += bytesToCopy;
+        const array = chunk instanceof Uint8Array ? chunk : chunk.subarray();
         
-        if (bytesRead >= 4) {
-          // Read message length
-          const length = new DataView(lengthBytes.buffer).getUint32(0, false);
+        if (firstChunk && array.length >= 4) {
+          // Read length prefix (4 bytes, big-endian)
+          length = new DataView(array.buffer, array.byteOffset, array.byteLength).getUint32(0, false);
           
-          // Read message data
-          const messageBytes = new Uint8Array(length);
-          let messageBytesRead = 0;
+          // Allocate buffer for message
+          messageBytes = new Uint8Array(length);
           
-          // Copy remaining bytes from first chunk
-          if (chunkArray.length > bytesToCopy) {
-            const remainingBytes = chunkArray.subarray(bytesToCopy);
-            const copyLength = Math.min(remainingBytes.length, length);
-            messageBytes.set(remainingBytes.subarray(0, copyLength), 0);
+          // Copy remaining bytes from first chunk (after length prefix)
+          if (array.length > 4) {
+            const copyLength = Math.min(array.length - 4, length);
+            messageBytes.set(array.subarray(4, 4 + copyLength), 0);
             messageBytesRead = copyLength;
           }
           
-          // Read more chunks if needed
-          if (messageBytesRead < length) {
-            for await (const nextChunk of stream) {
-              const nextArray = nextChunk instanceof Uint8Array ? nextChunk : nextChunk.subarray();
-              const copyLength = Math.min(nextArray.length, length - messageBytesRead);
-              messageBytes.set(nextArray.subarray(0, copyLength), messageBytesRead);
-              messageBytesRead += copyLength;
-              if (messageBytesRead >= length) break;
-            }
-          }
+          firstChunk = false;
           
-          const data = new TextDecoder().decode(messageBytes);
-          return JSON.parse(data) as T;
+          // If we got the complete message in the first chunk, break immediately
+          if (messageBytesRead >= length) {
+            break;
+          }
+        } else if (!firstChunk && messageBytes) {
+          // Continue reading subsequent chunks
+          const copyLength = Math.min(array.length, length - messageBytesRead);
+          messageBytes.set(array.subarray(0, copyLength), messageBytesRead);
+          messageBytesRead += copyLength;
+          
+          // Break as soon as we have the complete message
+          if (messageBytesRead >= length) {
+            break;
+          }
         }
+      }
+      
+      if (messageBytes && messageBytesRead === length) {
+        const data = new TextDecoder().decode(messageBytes);
+        return JSON.parse(data) as T;
       }
 
       return null;
     } catch (error: any) {
-      console.error('[ByteCave P2P] Failed to read message:', error);
+      // Only log if it's not a stream reset error (which is expected when we close the stream)
+      if (error.name !== 'StreamResetError' && error.code !== 'ERR_STREAM_RESET') {
+        console.error('[ByteCave P2P] Failed to read message:', error);
+      }
       return null;
     }
   }

@@ -186,7 +186,132 @@ Remove event listener.
 client.off('peerConnect', callback);
 ```
 
+## HashD Protocol (`hashd://`)
+
+Load content from ByteCave network using `hashd://` URLs - works just like regular HTTP URLs!
+
+### URL Format
+
+```
+hashd://{cid}
+hashd://{cid}?type=image/png
+```
+
+### Core Functions
+
+```typescript
+import { 
+  parseHashdUrl, 
+  createHashdUrl, 
+  fetchHashdContent 
+} from '@hashd/bytecave-browser';
+
+// Parse hashd:// URL
+const parsed = parseHashdUrl('hashd://abc123...');
+// { protocol: 'hashd:', cid: 'abc123...', mimeType: undefined }
+
+// Create hashd:// URL
+const url = createHashdUrl('abc123...', { mimeType: 'image/png' });
+// 'hashd://abc123...?type=image/png'
+
+// Fetch content (returns blob URL)
+const result = await fetchHashdContent(url, client);
+// { blobUrl: 'blob:...', mimeType: 'image/png', cached: false }
+```
+
 ## React Integration
+
+### Hooks
+
+```typescript
+import { useHashdImage, useHashdContent } from '@hashd/bytecave-browser/react';
+
+function ProfilePicture({ cid }) {
+  const { src, loading, error } = useHashdImage(`hashd://${cid}`, { 
+    client,
+    placeholder: '/default-avatar.png' 
+  });
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorIcon />;
+  
+  return <img src={src} alt="Profile" className="w-32 h-32 rounded-full" />;
+}
+
+// Generic content hook
+function ContentViewer({ url }) {
+  const { blobUrl, loading, error, mimeType } = useHashdContent(url, { client });
+  
+  if (loading) return <Spinner />;
+  if (error) return <Error message={error.message} />;
+  
+  if (mimeType?.startsWith('image/')) {
+    return <img src={blobUrl} />;
+  } else if (mimeType?.startsWith('video/')) {
+    return <video src={blobUrl} controls />;
+  }
+  
+  return <a href={blobUrl} download>Download</a>;
+}
+```
+
+### Components
+
+Drop-in replacements for standard HTML elements:
+
+```typescript
+import { HashdImage, HashdVideo, HashdAudio } from '@hashd/bytecave-browser/react';
+
+// Image
+<HashdImage 
+  src="hashd://abc123..." 
+  client={byteCaveClient}
+  alt="Profile picture"
+  className="w-32 h-32 rounded-full"
+  placeholder="/loading.png"
+  loadingComponent={<Spinner />}
+  errorComponent={<ErrorIcon />}
+/>
+
+// Video
+<HashdVideo 
+  src="hashd://def456..." 
+  client={byteCaveClient}
+  controls
+  className="w-full"
+/>
+
+// Audio
+<HashdAudio 
+  src="hashd://ghi789..." 
+  client={byteCaveClient}
+  controls
+/>
+
+// Render prop pattern
+<HashdContent url="hashd://abc123..." client={client}>
+  {({ blobUrl, loading, error }) => {
+    if (loading) return <Spinner />;
+    if (error) return <Error />;
+    return <img src={blobUrl} />;
+  }}
+</HashdContent>
+```
+
+### Available Hooks
+
+**`useHashdContent(url, options)`** - Generic content loader
+- Returns: `{ blobUrl, data, mimeType, loading, error, cached, refetch }`
+
+**`useHashdImage(url, options)`** - Image-specific loader
+- Returns: `{ src, blobUrl, loading, error, cached, refetch }`
+- Includes `placeholder` option
+
+**`useHashdMedia(url, options)`** - Video/audio loader
+- Returns: `{ src, blobUrl, loading, error, cached, refetch }`
+
+**`useHashdBatch(urls, options)`** - Batch load multiple URLs
+- Returns: `{ results: Map, loading, errors: Map }`
 
 ### Custom Hook Example
 
@@ -214,6 +339,44 @@ export function useByteCave(config) {
   }, []);
 
   return { client, peers, connectionState };
+}
+```
+
+### Complete Example
+
+```typescript
+import { ByteCaveClient } from '@hashd/bytecave-browser';
+import { HashdImage } from '@hashd/bytecave-browser/react';
+import { useState, useEffect } from 'react';
+
+function App() {
+  const [client, setClient] = useState(null);
+
+  useEffect(() => {
+    const bytecave = new ByteCaveClient({
+      relayPeers: [process.env.REACT_APP_RELAY_PEERS],
+      contractAddress: process.env.REACT_APP_VAULT_REGISTRY,
+      rpcUrl: process.env.REACT_APP_RPC_URL
+    });
+    
+    bytecave.start().then(() => setClient(bytecave));
+    
+    return () => bytecave.stop();
+  }, []);
+
+  if (!client) return <div>Connecting to ByteCave...</div>;
+
+  return (
+    <div>
+      <h1>ByteCave Gallery</h1>
+      <HashdImage 
+        src="hashd://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi"
+        client={client}
+        alt="Decentralized image"
+        className="max-w-md"
+      />
+    </div>
+  );
 }
 ```
 

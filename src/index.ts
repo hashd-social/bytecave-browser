@@ -19,3 +19,19 @@ export type {
   RetrieveResult,
   ConnectionState 
 } from './types.js';
+
+// Protocol handler exports
+export {
+  parseHashdUrl,
+  createHashdUrl,
+  fetchHashdContent,
+  prefetchHashdContent,
+  clearHashdCache,
+  getHashdCacheStats,
+  revokeHashdUrl
+} from './protocol-handler.js';
+export type {
+  HashdUrl,
+  FetchOptions,
+  FetchResult
+} from './protocol-handler.js';
