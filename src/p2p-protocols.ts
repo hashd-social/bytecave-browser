@@ -207,27 +207,16 @@ export class P2PProtocolClient {
     }
 
     try {
-      console.log(`[ByteCave P2P] Dialing health protocol for peer ${peerId.slice(0, 12)}...`);
       
       // Convert string peerId to PeerId object
       const peerIdObj = peerIdFromString(peerId);
       
-      console.log(`[ByteCave P2P] Opening stream to peer ${peerId.slice(0, 12)}...`);
+
       const stream = await this.node.dialProtocol(peerIdObj, PROTOCOL_HEALTH);
-      console.log(`[ByteCave P2P] Health protocol stream opened for ${peerId.slice(0, 12)}`);
 
       await this.writeMessage(stream, {});
-      console.log(`[ByteCave P2P] Health request sent to ${peerId.slice(0, 12)}`);
       
       const response = await this.readMessage<P2PHealthResponse>(stream);
-      
-      // if (response) {
-      //   console.log(`[ByteCave P2P] Health response received from ${peerId.slice(0, 12)}:`, JSON.stringify(response, null, 2));
-      // }
-
-      if (response) {
-        console.log(`[ByteCave P2P] Health response received from ${peerId.slice(0, 12)}:`);
-      }      
       
       await stream.close();
       return response;

@@ -188,8 +188,7 @@ export class ByteCaveClient {
                     publicKey: health.publicKey || '',
                     contentTypes: health.contentTypes || 'all',
                     connected: true,
-                    nodeId: health.nodeId,
-                    httpUrl: undefined
+                    nodeId: health.nodeId
                   });
                   console.log('[ByteCave] ✓ Discovered peer:', health.nodeId || peer.peerId.slice(0, 12));
                 }
@@ -436,38 +435,11 @@ export class ByteCaveClient {
     
     // Add any connected peers not in knownPeers
     for (const peerIdStr of connectedPeerIds) {
-      // Try to get HTTP URL from peer's metadata via identify protocol
-      let httpUrl: string | undefined;
-      
-      try {
-        const peerId = this.node!.getPeers().find(p => p.toString() === peerIdStr);
-        if (peerId) {
-          const peer = await this.node!.peerStore.get(peerId);
-          console.log(`[ByteCave] Peer ${peerIdStr.slice(0, 12)} metadata:`, peer.metadata ? Array.from(peer.metadata.keys()) : 'none');
-          
-          // Look for HTTP metadata in peer's metadata
-          if (peer.metadata) {
-            const httpUrlBytes = peer.metadata.get('httpUrl');
-            if (httpUrlBytes) {
-              httpUrl = toString(httpUrlBytes);
-              console.log(`[ByteCave] Found HTTP URL for peer ${peerIdStr.slice(0, 12)}: ${httpUrl}`);
-            } else {
-              console.log(`[ByteCave] No httpUrl in metadata for peer ${peerIdStr.slice(0, 12)}`);
-            }
-          } else {
-            console.log(`[ByteCave] No metadata for peer ${peerIdStr.slice(0, 12)}`);
-          }
-        }
-      } catch (err) {
-        console.warn(`[ByteCave] Failed to get peer metadata for ${peerIdStr.slice(0, 12)}:`, err);
-      }
-      
       result.push({
         peerId: peerIdStr,
         publicKey: '',
         contentTypes: 'all',
-        connected: true,
-        httpUrl
+        connected: true
       });
     }
     
@@ -606,7 +578,7 @@ export class ByteCaveClient {
           const data = toString(event.detail.data);
           const announcement = JSON.parse(data);
           console.log('[ByteCave] Received peer announcement:', announcement.peerId?.slice(0, 12));
-          this.handleAnnouncement(announcement);
+          this.handlePeerAnnouncement(announcement);
         } catch (error) {
           console.warn('Failed to parse announcement:', error);
         }
@@ -624,72 +596,35 @@ export class ByteCaveClient {
     });
   }
 
-  private async handleAnnouncement(announcement: {
+  private async handlePeerAnnouncement(announcement: {
     peerId: string;
-    nodeId?: string;
-    availableStorage?: number;
-    blobCount?: number;
     timestamp?: number;
     relayAddrs?: string[];
-    // Legacy fields
-    httpEndpoint?: string;
     contentTypes?: string[] | 'all';
   }): Promise<void> {
     console.log('[ByteCave] Received announcement from peer:', announcement.peerId.slice(0, 12), announcement);
     
     const existing = this.knownPeers.get(announcement.peerId);
     
-    // Check if this peer is registered on-chain
-    let isRegistered = existing?.isRegistered || false;
-    if (announcement.httpEndpoint && !existing?.isRegistered) {
-      isRegistered = await this.checkPeerRegistration(announcement.httpEndpoint);
-    }
-    
     const peerInfo: PeerInfo = {
       peerId: announcement.peerId,
       publicKey: existing?.publicKey || '',
       contentTypes: announcement.contentTypes || 'all',
-      connected: this.node?.getPeers().some(p => p.toString() === announcement.peerId) || false,
-      isRegistered,
-      httpUrl: announcement.httpEndpoint
+      connected: this.node?.getPeers().some(p => p.toString() === announcement.peerId) || false
     };
 
     // Preserve relay addresses from existing peer info if new announcement doesn't have them
-    const existingRelayAddrs = (existing as any)?.relayAddrs;
-    const relayAddrsToUse = announcement.relayAddrs || existingRelayAddrs;
-    
-    if (relayAddrsToUse && relayAddrsToUse.length > 0) {
-      console.log('[ByteCave] Storing relay addresses for peer:', announcement.peerId.slice(0, 12), relayAddrsToUse);
-      (peerInfo as any).relayAddrs = relayAddrsToUse;
+    if (announcement.relayAddrs && announcement.relayAddrs.length > 0) {
+      (peerInfo as any).relayAddrs = announcement.relayAddrs;
+    } else if (existing && (existing as any).relayAddrs) {
+      (peerInfo as any).relayAddrs = (existing as any).relayAddrs;
     }
 
     this.knownPeers.set(announcement.peerId, peerInfo);
-    
-    // Store HTTP endpoint separately for fallback
-    if (announcement.httpEndpoint) {
-      (peerInfo as any).httpEndpoint = announcement.httpEndpoint;
-    }
 
     this.emit('peerAnnounce', peerInfo);
   }
   
-  /**
-   * Check if a peer's URL is registered in the on-chain registry
-   */
-  private async checkPeerRegistration(httpUrl: string): Promise<boolean> {
-    if (!this.discovery) {
-      // No contract configured - skip registration check
-      return true;
-    }
-    
-    try {
-      const registeredNodes = await this.discovery.getActiveNodes();
-      return registeredNodes.some(node => node.url === httpUrl);
-    } catch (error) {
-      console.warn('[ByteCave] Failed to check peer registration:', error);
-      return false;
-    }
-  }
 
   /**
    * Check if a nodeId is registered in the on-chain registry

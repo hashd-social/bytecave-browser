@@ -17,7 +17,6 @@ export interface PeerInfo {
   contentTypes: string[] | 'all';
   connected: boolean;
   latency?: number;
-  httpUrl?: string;
   nodeId?: string;
   isRegistered?: boolean;
   owner?: string;

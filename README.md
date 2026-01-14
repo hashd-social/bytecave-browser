@@ -5,11 +5,12 @@ Browser-compatible P2P client library for connecting to the ByteCave decentraliz
 ## Features
 
 - **Fast Node Discovery** - Discover storage nodes in 1-2 seconds via relay peer directory
-- **Pure P2P Discovery** - Connect via relay nodes, no HTTP required
-- **WebRTC Support** - Direct browser-to-node connections
-- **WebSocket Fallback** - Relay-based connections for NAT traversal
+- **Pure P2P** - Connect via relay nodes, no HTTP endpoints required
+- **WebRTC Support** - Direct browser-to-node P2P connections
+- **Circuit Relay** - Relay-based connections for NAT traversal
 - **FloodSub** - Peer announcements and discovery
-- **Contract Integration** - On-chain node registry support
+- **Contract Integration** - Optional on-chain node registry support
+- **React Hooks & Components** - Ready-to-use React integration
 - **TypeScript** - Full type safety
 
 ## Installation
@@ -76,19 +77,24 @@ interface ByteCaveConfig {
 relayPeers: [
   // WebSocket multiaddr (required for browsers)
   '/dns4/relay.example.com/tcp/4002/ws/p2p/12D3KooW...',
-  // Multiple relays for redundancy
+  // Multiple relays for redundancy (recommended)
   '/dns4/relay2.example.com/tcp/4002/ws/p2p/12D3KooW...'
 ]
 ```
 
 **Getting Relay Multiaddrs:**
 
-From relay node logs:
+From relay HTTP info endpoint:
+```bash
+curl http://relay.example.com:9090/info
+```
+
+Or from relay node logs:
 ```bash
 docker-compose logs relay1 | grep "Listening on"
 ```
 
-Use the WebSocket address (contains `/ws/`).
+**Important**: Use the WebSocket address (contains `/ws/`) for browser clients.
 
 ## API Reference
 
@@ -423,12 +429,13 @@ On startup, the browser queries the relay's peer directory protocol for instant 
 4. **Establish Connection** - Direct WebRTC or relayed connection
 5. **Store/Retrieve** - P2P protocols for data operations
 
-### No HTTP Required
+### Pure P2P Architecture
 
 - ✅ No HTTP health endpoint calls
 - ✅ No HTTP multiaddr fetching
 - ✅ Pure libp2p protocols (Peer Directory, FloodSub, DHT)
 - ✅ Works entirely over P2P network
+- ✅ Browser connects directly to storage nodes via WebRTC or relay
 
 ## Protocols
 
