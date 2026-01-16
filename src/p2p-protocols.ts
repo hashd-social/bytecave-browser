@@ -222,7 +222,7 @@ export class P2PProtocolClient {
       return response;
 
     } catch (error: any) {
-      console.error('[ByteCave P2P] Failed to get health from peer:', peerId.slice(0, 12), error);
+      // console.error('[ByteCave P2P] Failed to get health from peer:', peerId.slice(0, 12), error);
       return null;
     }
   }
