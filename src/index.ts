@@ -5,9 +5,17 @@
  * No central gateway required - fully decentralized.
  */
 
+// Simple test export
+export const TEST_EXPORT = "ByteCave Browser Package v1.0.0";
+
 export { ByteCaveClient } from './client.js';
 export { ContractDiscovery } from './discovery.js';
 export { p2pProtocolClient } from './p2p-protocols.js';
+
+// Provider exports
+export { ByteCaveProvider, useByteCaveContext } from './provider.js';
+
+// Type exports
 export type { 
   P2PHealthResponse,
   P2PInfoResponse 

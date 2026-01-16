@@ -1,5 +1,5 @@
 /**
- * React Hooks for HashD Protocol
+ * React Hooks for HASHD Protocol
  * 
  * Provides hooks for loading content from ByteCave network using hashd:// URLs
  */

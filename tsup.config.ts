@@ -7,8 +7,11 @@ export default defineConfig({
     'react/index': 'src/react/index.ts'
   },
   format: ['cjs', 'esm'],
-  dts: true,
+  dts: false, // Will use tsc for type definitions
   clean: true,
   sourcemap: false,
-  external: ['react']
+  external: ['react'],
+  esbuildOptions(options) {
+    options.jsx = 'automatic';
+  }
 });
