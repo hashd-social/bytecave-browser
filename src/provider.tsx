@@ -150,7 +150,7 @@ export function ByteCaveProvider({
         globalClient.off('peerDisconnect', () => {});
       }
     };
-  }, [contractAddress, rpcUrl, relayPeers, directNodeAddrs, connect]);
+  }, []); // Empty deps - only initialize once on mount
 
   const disconnect = async () => {
     if (!globalClient) return;

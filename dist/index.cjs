@@ -6554,7 +6554,7 @@ function ByteCaveProvider({
         });
       }
     };
-  }, [contractAddress, rpcUrl, relayPeers, directNodeAddrs, connect]);
+  }, []);
   const disconnect = async () => {
     if (!globalClient) return;
     try {
