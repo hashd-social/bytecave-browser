@@ -5932,9 +5932,24 @@ var P2PProtocolClient = class {
     const combined = new Uint8Array(lengthPrefix.length + data.length);
     combined.set(lengthPrefix, 0);
     combined.set(data, lengthPrefix.length);
-    const needsDrain = !stream.send(combined);
-    if (needsDrain) {
-      await stream.onDrain();
+    const CHUNK_SIZE = 65536;
+    if (combined.length > CHUNK_SIZE) {
+      console.log(`[ByteCave P2P] Sending large message in chunks: ${combined.length} bytes`);
+      for (let offset = 0; offset < combined.length; offset += CHUNK_SIZE) {
+        const chunk = combined.subarray(offset, Math.min(offset + CHUNK_SIZE, combined.length));
+        const needsDrain = !stream.send(chunk);
+        if (needsDrain) {
+          await stream.onDrain();
+        }
+        if (offset + CHUNK_SIZE < combined.length) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+      }
+    } else {
+      const needsDrain = !stream.send(combined);
+      if (needsDrain) {
+        await stream.onDrain();
+      }
     }
   }
   // Base64 utilities for browser

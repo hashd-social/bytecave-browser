@@ -395,12 +395,31 @@ export class P2PProtocolClient {
     combined.set(lengthPrefix, 0);
     combined.set(data, lengthPrefix.length);
     
-    // Write to stream using send() method
-    const needsDrain = !stream.send(combined);
-    
-    // If send returned false, wait for drain event
-    if (needsDrain) {
-      await stream.onDrain();
+    // For large messages (>64KB), send in chunks to avoid buffer overflow
+    const CHUNK_SIZE = 65536; // 64KB chunks
+    if (combined.length > CHUNK_SIZE) {
+      console.log(`[ByteCave P2P] Sending large message in chunks: ${combined.length} bytes`);
+      
+      for (let offset = 0; offset < combined.length; offset += CHUNK_SIZE) {
+        const chunk = combined.subarray(offset, Math.min(offset + CHUNK_SIZE, combined.length));
+        const needsDrain = !stream.send(chunk);
+        
+        if (needsDrain) {
+          await stream.onDrain();
+        }
+        
+        // Small delay between chunks to prevent overwhelming the stream
+        if (offset + CHUNK_SIZE < combined.length) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      }
+    } else {
+      // Small message, send all at once
+      const needsDrain = !stream.send(combined);
+      
+      if (needsDrain) {
+        await stream.onDrain();
+      }
     }
   }
 
