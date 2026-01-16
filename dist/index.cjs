@@ -5735,30 +5735,39 @@ var P2PProtocolClient = class {
     }
     try {
       const peerIdObj = peerIdFromString(peerId);
-      const stream = await this.node.dialProtocol(peerIdObj, "/bytecave/store/1.0.0");
-      const dataCopy = new Uint8Array(ciphertext);
-      const hashBuffer = await crypto.subtle.digest("SHA-256", dataCopy);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const cid = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-      const request = {
-        cid,
-        mimeType,
-        ciphertext: this.uint8ArrayToBase64(ciphertext),
-        appId: authorization?.appId || "hashd",
-        contentType: contentType || "media",
-        sender: authorization?.sender,
-        timestamp: authorization?.timestamp || Date.now(),
-        metadata: {},
-        authorization
-      };
-      await this.writeMessage(stream, request);
-      const response = await this.readMessage(stream);
-      await stream.close();
-      if (response?.success) {
-        return { success: true, cid };
-      } else {
-        return { success: false, error: response?.error || "Store failed" };
-      }
+      const fileSizeMB = ciphertext.length / (1024 * 1024);
+      const timeoutMs = 3e4 + fileSizeMB * 1e4;
+      console.log(`[ByteCave P2P] Store timeout: ${Math.round(timeoutMs / 1e3)}s for ${fileSizeMB.toFixed(2)}MB`);
+      const storePromise = (async () => {
+        const stream = await this.node.dialProtocol(peerIdObj, "/bytecave/store/1.0.0");
+        const dataCopy = new Uint8Array(ciphertext);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", dataCopy);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const cid = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+        const request = {
+          cid,
+          mimeType,
+          ciphertext: this.uint8ArrayToBase64(ciphertext),
+          appId: authorization?.appId || "hashd",
+          contentType: contentType || "media",
+          sender: authorization?.sender,
+          timestamp: authorization?.timestamp || Date.now(),
+          metadata: {},
+          authorization
+        };
+        await this.writeMessage(stream, request);
+        const response = await this.readMessage(stream);
+        await stream.close();
+        if (response?.success) {
+          return { success: true, cid };
+        } else {
+          return { success: false, error: response?.error || "Store failed" };
+        }
+      })();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(`Store timeout after ${Math.round(timeoutMs / 1e3)}s`)), timeoutMs);
+      });
+      return await Promise.race([storePromise, timeoutPromise]);
     } catch (error) {
       console.warn("[ByteCave P2P] Failed to store to peer:", peerId, error.message);
       return { success: false, error: error.message };
@@ -5812,7 +5821,6 @@ var P2PProtocolClient = class {
       await stream.close();
       return response;
     } catch (error) {
-      console.error("[ByteCave P2P] Failed to get health from peer:", peerId.slice(0, 12), error);
       return null;
     }
   }
