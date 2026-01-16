@@ -6511,6 +6511,7 @@ function ByteCaveProvider({
         console.log("[ByteCaveProvider] Client already exists, skipping initialization");
         return;
       }
+      console.log("[ByteCaveProvider] Creating new ByteCaveClient");
       globalClient = new ByteCaveClient({
         contractAddress,
         rpcUrl,
