@@ -97,9 +97,10 @@ export function ByteCaveProvider({
     }
 
     const initializeClient = async () => {
+      // Don't stop existing client - we only initialize once with empty deps
       if (globalClient) {
-        await globalClient.stop().catch(() => {});
-        globalClient = null;
+        console.log('[ByteCaveProvider] Client already exists, skipping initialization');
+        return;
       }
       
       globalClient = new ByteCaveClient({

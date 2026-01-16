@@ -6508,9 +6508,8 @@ function ByteCaveProvider({
     }
     const initializeClient = async () => {
       if (globalClient) {
-        await globalClient.stop().catch(() => {
-        });
-        globalClient = null;
+        console.log("[ByteCaveProvider] Client already exists, skipping initialization");
+        return;
       }
       globalClient = new ByteCaveClient({
         contractAddress,
