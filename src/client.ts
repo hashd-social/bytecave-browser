@@ -278,6 +278,16 @@ export class ByteCaveClient {
 
     const dataArray = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
 
+    // Validate file size (5MB limit)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+    if (dataArray.length > MAX_FILE_SIZE) {
+      const sizeMB = (dataArray.length / (1024 * 1024)).toFixed(2);
+      return {
+        success: false,
+        error: `File size (${sizeMB}MB) exceeds maximum allowed size of 5MB`
+      };
+    }
+
     // Create authorization if signer is provided
     let authorization: any = undefined;
     if (signer) {

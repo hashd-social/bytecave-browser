@@ -6171,6 +6171,14 @@ var ByteCaveClient = class {
       ")"
     );
     const dataArray = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (dataArray.length > MAX_FILE_SIZE) {
+      const sizeMB = (dataArray.length / (1024 * 1024)).toFixed(2);
+      return {
+        success: false,
+        error: `File size (${sizeMB}MB) exceeds maximum allowed size of 5MB`
+      };
+    }
     let authorization = void 0;
     if (signer) {
       try {
