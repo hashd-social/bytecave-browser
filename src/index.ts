@@ -43,3 +43,16 @@ export type {
   FetchOptions,
   FetchResult
 } from './protocol-handler.js';
+
+// React hooks exports
+export {
+  useHashdContent,
+  useHashdImage,
+  useHashdMedia,
+  useHashdBatch
+} from './react/hooks.js';
+export {
+  HashdImage,
+  HashdVideo,
+  HashdAudio
+} from './react/components.js';

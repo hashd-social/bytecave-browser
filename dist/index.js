@@ -1,4 +1,13 @@
 import {
+  HashdAudio,
+  HashdImage,
+  HashdVideo,
+  useHashdBatch,
+  useHashdContent,
+  useHashdImage,
+  useHashdMedia
+} from "./chunk-D57C5P6J.js";
+import {
   __publicField,
   clearHashdCache,
   createHashdUrl,
@@ -6608,6 +6617,9 @@ export {
   ByteCaveClient,
   ByteCaveProvider,
   ContractDiscovery,
+  HashdAudio,
+  HashdImage,
+  HashdVideo,
   TEST_EXPORT,
   clearHashdCache,
   createHashdUrl,
@@ -6617,7 +6629,11 @@ export {
   parseHashdUrl,
   prefetchHashdContent,
   revokeHashdUrl,
-  useByteCaveContext
+  useByteCaveContext,
+  useHashdBatch,
+  useHashdContent,
+  useHashdImage,
+  useHashdMedia
 };
 /*! Bundled license information:
 

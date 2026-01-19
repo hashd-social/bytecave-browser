@@ -35,6 +35,9 @@ __export(src_exports, {
   ByteCaveClient: () => ByteCaveClient,
   ByteCaveProvider: () => ByteCaveProvider,
   ContractDiscovery: () => ContractDiscovery,
+  HashdAudio: () => HashdAudio,
+  HashdImage: () => HashdImage,
+  HashdVideo: () => HashdVideo,
   TEST_EXPORT: () => TEST_EXPORT,
   clearHashdCache: () => clearHashdCache,
   createHashdUrl: () => createHashdUrl,
@@ -44,7 +47,11 @@ __export(src_exports, {
   parseHashdUrl: () => parseHashdUrl,
   prefetchHashdContent: () => prefetchHashdContent,
   revokeHashdUrl: () => revokeHashdUrl,
-  useByteCaveContext: () => useByteCaveContext
+  useByteCaveContext: () => useByteCaveContext,
+  useHashdBatch: () => useHashdBatch,
+  useHashdContent: () => useHashdContent,
+  useHashdImage: () => useHashdImage,
+  useHashdMedia: () => useHashdMedia
 });
 module.exports = __toCommonJS(src_exports);
 
@@ -6787,6 +6794,225 @@ function revokeHashdUrl(cid) {
   blobCache.revoke(cid);
 }
 
+// src/react/hooks.ts
+var import_react2 = require("react");
+function useHashdContent(url, options) {
+  const { client, enabled = true, onSuccess, onError } = options;
+  const [blobUrl, setBlobUrl] = (0, import_react2.useState)(null);
+  const [data, setData] = (0, import_react2.useState)(null);
+  const [mimeType, setMimeType] = (0, import_react2.useState)(null);
+  const [loading, setLoading] = (0, import_react2.useState)(false);
+  const [error, setError] = (0, import_react2.useState)(null);
+  const [cached, setCached] = (0, import_react2.useState)(false);
+  const [refetchTrigger, setRefetchTrigger] = (0, import_react2.useState)(0);
+  const mountedRef = (0, import_react2.useRef)(true);
+  const abortControllerRef = (0, import_react2.useRef)(null);
+  const refetch = (0, import_react2.useCallback)(() => {
+    setRefetchTrigger((prev) => prev + 1);
+  }, []);
+  (0, import_react2.useEffect)(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+  (0, import_react2.useEffect)(() => {
+    if (!url || !enabled || !client) {
+      setBlobUrl(null);
+      setData(null);
+      setMimeType(null);
+      setError(null);
+      setCached(false);
+      setLoading(false);
+      return;
+    }
+    let parsed;
+    try {
+      parsed = parseHashdUrl(url);
+    } catch (err) {
+      setError(err);
+      setLoading(false);
+      return;
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    setLoading(true);
+    setError(null);
+    fetchHashdContent(parsed, client, { signal: abortController.signal }).then((result) => {
+      if (!mountedRef.current || abortController.signal.aborted) {
+        return;
+      }
+      setBlobUrl(result.blobUrl);
+      setData(result.data);
+      setMimeType(result.mimeType);
+      setCached(result.cached);
+      setLoading(false);
+      if (onSuccess) {
+        onSuccess(result.blobUrl);
+      }
+    }).catch((err) => {
+      if (!mountedRef.current || abortController.signal.aborted) {
+        return;
+      }
+      const error2 = err instanceof Error ? err : new Error(String(err));
+      setError(error2);
+      setLoading(false);
+      if (onError) {
+        onError(error2);
+      }
+    });
+    return () => {
+      abortController.abort();
+    };
+  }, [url, client, enabled, refetchTrigger, onSuccess, onError]);
+  return {
+    blobUrl,
+    data,
+    mimeType,
+    loading,
+    error,
+    cached,
+    refetch
+  };
+}
+function useHashdImage(url, options) {
+  const result = useHashdContent(url, options);
+  return {
+    ...result,
+    src: result.blobUrl || options.placeholder || ""
+  };
+}
+function useHashdMedia(url, options) {
+  const result = useHashdContent(url, options);
+  return {
+    ...result,
+    src: result.blobUrl || ""
+  };
+}
+function useHashdBatch(urls, options) {
+  const [results, setResults] = (0, import_react2.useState)(/* @__PURE__ */ new Map());
+  const [loading, setLoading] = (0, import_react2.useState)(false);
+  const [errors, setErrors] = (0, import_react2.useState)(/* @__PURE__ */ new Map());
+  (0, import_react2.useEffect)(() => {
+    if (!options.client || !options.enabled) {
+      return;
+    }
+    const validUrls = urls.filter((url) => !!url);
+    if (validUrls.length === 0) {
+      setResults(/* @__PURE__ */ new Map());
+      setErrors(/* @__PURE__ */ new Map());
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const newResults = /* @__PURE__ */ new Map();
+    const newErrors = /* @__PURE__ */ new Map();
+    Promise.all(
+      validUrls.map(async (url) => {
+        try {
+          const parsed = parseHashdUrl(url);
+          const result = await fetchHashdContent(parsed, options.client);
+          newResults.set(url, {
+            blobUrl: result.blobUrl,
+            data: result.data,
+            mimeType: result.mimeType,
+            loading: false,
+            error: null,
+            cached: result.cached,
+            refetch: () => {
+            }
+          });
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          newErrors.set(url, error);
+        }
+      })
+    ).finally(() => {
+      setResults(newResults);
+      setErrors(newErrors);
+      setLoading(false);
+    });
+  }, [urls.join(","), options.client, options.enabled]);
+  return { results, loading, errors };
+}
+
+// src/react/components.tsx
+var import_react3 = __toESM(require("react"), 1);
+function HashdImage({
+  src: src2,
+  client,
+  placeholder,
+  loadingComponent,
+  errorComponent,
+  onHashdLoad,
+  onHashdError,
+  ...imgProps
+}) {
+  const { src: blobUrl, loading, error } = useHashdImage(src2, {
+    client,
+    placeholder,
+    onSuccess: onHashdLoad,
+    onError: onHashdError
+  });
+  if (loading && loadingComponent) {
+    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, loadingComponent);
+  }
+  if (error && errorComponent) {
+    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, errorComponent);
+  }
+  return /* @__PURE__ */ import_react3.default.createElement("img", { ...imgProps, src: blobUrl });
+}
+function HashdVideo({
+  src: src2,
+  client,
+  loadingComponent,
+  errorComponent,
+  onHashdLoad,
+  onHashdError,
+  ...videoProps
+}) {
+  const { src: blobUrl, loading, error } = useHashdMedia(src2, {
+    client,
+    onSuccess: onHashdLoad,
+    onError: onHashdError
+  });
+  if (loading && loadingComponent) {
+    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, loadingComponent);
+  }
+  if (error && errorComponent) {
+    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, errorComponent);
+  }
+  return /* @__PURE__ */ import_react3.default.createElement("video", { ...videoProps, src: blobUrl });
+}
+function HashdAudio({
+  src: src2,
+  client,
+  loadingComponent,
+  errorComponent,
+  onHashdLoad,
+  onHashdError,
+  ...audioProps
+}) {
+  const { src: blobUrl, loading, error } = useHashdMedia(src2, {
+    client,
+    onSuccess: onHashdLoad,
+    onError: onHashdError
+  });
+  if (loading && loadingComponent) {
+    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, loadingComponent);
+  }
+  if (error && errorComponent) {
+    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, errorComponent);
+  }
+  return /* @__PURE__ */ import_react3.default.createElement("audio", { ...audioProps, src: blobUrl });
+}
+
 // src/index.ts
 var TEST_EXPORT = "ByteCave Browser Package v1.0.0";
 // Annotate the CommonJS export names for ESM import in node:
@@ -6794,6 +7020,9 @@ var TEST_EXPORT = "ByteCave Browser Package v1.0.0";
   ByteCaveClient,
   ByteCaveProvider,
   ContractDiscovery,
+  HashdAudio,
+  HashdImage,
+  HashdVideo,
   TEST_EXPORT,
   clearHashdCache,
   createHashdUrl,
@@ -6803,7 +7032,11 @@ var TEST_EXPORT = "ByteCave Browser Package v1.0.0";
   parseHashdUrl,
   prefetchHashdContent,
   revokeHashdUrl,
-  useByteCaveContext
+  useByteCaveContext,
+  useHashdBatch,
+  useHashdContent,
+  useHashdImage,
+  useHashdMedia
 });
 /*! Bundled license information:
 
