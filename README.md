@@ -227,11 +227,97 @@ const result = await fetchHashdContent(url, client);
 
 ## React Integration
 
-### Hooks
+### Provider Setup (Recommended)
+
+The easiest way to use ByteCave in React is with the `ByteCaveProvider`:
 
 ```typescript
-import { useHashdImage, useHashdContent } from '@hashd/bytecave-browser/react';
+import { ByteCaveProvider } from '@hashd/bytecave-browser';
 
+function App() {
+  return (
+    <ByteCaveProvider
+      contractAddress={process.env.REACT_APP_VAULT_REGISTRY}
+      rpcUrl={process.env.REACT_APP_RPC_URL}
+      relayPeers={process.env.REACT_APP_RELAY_PEERS?.split(',')}
+    >
+      <YourApp />
+    </ByteCaveProvider>
+  );
+}
+```
+
+Then use hooks anywhere in your app:
+
+```typescript
+import { useByteCaveContext, useHashdUrl } from '@hashd/bytecave-browser';
+
+function ImageGallery() {
+  const { store, retrieve, isConnected } = useByteCaveContext();
+  
+  // Display image from hashd:// URL
+  const { blobUrl, loading, error } = useHashdUrl('hashd://abc123...');
+  
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+  
+  return <img src={blobUrl} alt="Stored image" />;
+}
+
+function Uploader() {
+  const { store, isConnected } = useByteCaveContext();
+  
+  const handleUpload = async (file: File) => {
+    const data = new Uint8Array(await file.arrayBuffer());
+    const result = await store(data, file.type);
+    console.log('Uploaded with CID:', result.cid);
+  };
+  
+  return (
+    <input 
+      type="file" 
+      onChange={(e) => handleUpload(e.target.files[0])}
+      disabled={!isConnected}
+    />
+  );
+}
+```
+
+### Available Hooks
+
+**`useByteCaveContext()`** - Access ByteCave client from context
+
+Must be used within `ByteCaveProvider`. Returns:
+```typescript
+{
+  connectionState: 'disconnected' | 'connecting' | 'connected' | 'error',
+  peers: PeerInfo[],
+  isConnected: boolean,
+  connect: () => Promise<void>,
+  disconnect: () => Promise<void>,
+  store: (data: Uint8Array, contentType?: string, signer?: any) => Promise<StoreResult>,
+  retrieve: (cid: string) => Promise<RetrieveResult>,
+  getNodeHealth: (peerId: string) => Promise<NodeHealth | null>,
+  error: string | null
+}
+```
+
+**`useHashdUrl(url)`** - Convert hashd:// URL to blob URL
+
+```typescript
+function ImageDisplay({ cid }) {
+  const { blobUrl, loading, error } = useHashdUrl(`hashd://${cid}`);
+  
+  if (loading) return <Spinner />;
+  if (error) return <Error message={error} />;
+  
+  return <img src={blobUrl} alt="Image" />;
+}
+```
+
+**`useHashdImage(url, options)`** - Image-specific loader
+
+```typescript
 function ProfilePicture({ cid }) {
   const { src, loading, error } = useHashdImage(`hashd://${cid}`, { 
     client,
@@ -243,8 +329,11 @@ function ProfilePicture({ cid }) {
   
   return <img src={src} alt="Profile" className="w-32 h-32 rounded-full" />;
 }
+```
 
-// Generic content hook
+**`useHashdContent(url, options)`** - Generic content loader
+
+```typescript
 function ContentViewer({ url }) {
   const { blobUrl, loading, error, mimeType } = useHashdContent(url, { client });
   
@@ -258,6 +347,29 @@ function ContentViewer({ url }) {
   }
   
   return <a href={blobUrl} download>Download</a>;
+}
+```
+
+**`useHashdMedia(url, options)`** - Video/audio loader
+
+Returns: `{ src, blobUrl, loading, error, cached, refetch }`
+
+**`useHashdBatch(urls, options)`** - Batch load multiple URLs
+
+```typescript
+function Gallery({ cids }) {
+  const urls = cids.map(cid => `hashd://${cid}`);
+  const { results, loading, errors } = useHashdBatch(urls, { client });
+  
+  if (loading) return <Spinner />;
+  
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {Array.from(results.entries()).map(([url, result]) => (
+        <img key={url} src={result.blobUrl} alt="" />
+      ))}
+    </div>
+  );
 }
 ```
 
@@ -304,55 +416,63 @@ import { HashdImage, HashdVideo, HashdAudio } from '@hashd/bytecave-browser/reac
 </HashdContent>
 ```
 
-### Available Hooks
 
-**`useHashdContent(url, options)`** - Generic content loader
-- Returns: `{ blobUrl, data, mimeType, loading, error, cached, refetch }`
-
-**`useHashdImage(url, options)`** - Image-specific loader
-- Returns: `{ src, blobUrl, loading, error, cached, refetch }`
-- Includes `placeholder` option
-
-**`useHashdMedia(url, options)`** - Video/audio loader
-- Returns: `{ src, blobUrl, loading, error, cached, refetch }`
-
-**`useHashdBatch(urls, options)`** - Batch load multiple URLs
-- Returns: `{ results: Map, loading, errors: Map }`
-
-### Custom Hook Example
+### Complete Example with Provider
 
 ```typescript
-import { useState, useEffect } from 'react';
-import { ByteCaveClient } from '@hashd/bytecave-browser';
+import { ByteCaveProvider, useByteCaveContext, useHashdUrl } from '@hashd/bytecave-browser';
 
-export function useByteCave(config) {
-  const [client, setClient] = useState(null);
-  const [peers, setPeers] = useState([]);
-  const [connectionState, setConnectionState] = useState('disconnected');
+// Wrap your app with the provider
+function App() {
+  return (
+    <ByteCaveProvider
+      contractAddress={process.env.REACT_APP_VAULT_REGISTRY}
+      rpcUrl={process.env.REACT_APP_RPC_URL}
+      relayPeers={process.env.REACT_APP_RELAY_PEERS?.split(',')}
+    >
+      <Gallery />
+    </ByteCaveProvider>
+  );
+}
 
-  useEffect(() => {
-    const bytecave = new ByteCaveClient(config);
-    
-    bytecave.on('connectionStateChange', setConnectionState);
-    bytecave.on('peerConnect', () => setPeers(bytecave.getPeers()));
-    bytecave.on('peerDisconnect', () => setPeers(bytecave.getPeers()));
-    
-    setClient(bytecave);
-    
-    return () => {
-      bytecave.stop();
-    };
-  }, []);
+// Use hooks in any component
+function Gallery() {
+  const { isConnected, store } = useByteCaveContext();
+  const { blobUrl, loading, error } = useHashdUrl(
+    'hashd://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
+  );
 
-  return { client, peers, connectionState };
+  const handleUpload = async (file: File) => {
+    const data = new Uint8Array(await file.arrayBuffer());
+    const result = await store(data, file.type);
+    console.log('Uploaded:', result.cid);
+  };
+
+  if (!isConnected) return <div>Connecting to ByteCave...</div>;
+
+  return (
+    <div>
+      <h1>ByteCave Gallery</h1>
+      
+      {/* Display image */}
+      {loading && <div>Loading image...</div>}
+      {error && <div>Error: {error}</div>}
+      {blobUrl && <img src={blobUrl} alt="Decentralized" className="max-w-md" />}
+      
+      {/* Upload new image */}
+      <input type="file" onChange={(e) => handleUpload(e.target.files[0])} />
+    </div>
+  );
 }
 ```
 
-### Complete Example
+### Complete Example without Provider
+
+If you prefer manual client management:
 
 ```typescript
 import { ByteCaveClient } from '@hashd/bytecave-browser';
-import { HashdImage } from '@hashd/bytecave-browser/react';
+import { HashdImage } from '@hashd/bytecave-browser';
 import { useState, useEffect } from 'react';
 
 function App() {
@@ -360,7 +480,7 @@ function App() {
 
   useEffect(() => {
     const bytecave = new ByteCaveClient({
-      relayPeers: [process.env.REACT_APP_RELAY_PEERS],
+      relayPeers: process.env.REACT_APP_RELAY_PEERS?.split(','),
       contractAddress: process.env.REACT_APP_VAULT_REGISTRY,
       rpcUrl: process.env.REACT_APP_RPC_URL
     });
