@@ -5739,11 +5739,14 @@ var P2PProtocolClient = class {
       const timeoutMs = 3e4 + fileSizeMB * 1e4;
       console.log(`[ByteCave P2P] Store timeout: ${Math.round(timeoutMs / 1e3)}s for ${fileSizeMB.toFixed(2)}MB`);
       const storePromise = (async () => {
+        console.log("[ByteCave P2P] Step 1: Dialing store protocol...");
         const stream = await this.node.dialProtocol(peerIdObj, "/bytecave/store/1.0.0");
+        console.log("[ByteCave P2P] Step 2: Stream established");
         const dataCopy = new Uint8Array(ciphertext);
         const hashBuffer = await crypto.subtle.digest("SHA-256", dataCopy);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const cid = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+        console.log("[ByteCave P2P] Step 3: CID generated:", cid.slice(0, 16) + "...");
         const request = {
           cid,
           mimeType,
@@ -5755,8 +5758,12 @@ var P2PProtocolClient = class {
           metadata: {},
           authorization
         };
+        console.log("[ByteCave P2P] Step 4: Request prepared, size:", JSON.stringify(request).length, "bytes");
+        console.log("[ByteCave P2P] Step 5: Writing message to stream...");
         await this.writeMessage(stream, request);
+        console.log("[ByteCave P2P] Step 6: Message written, waiting for response...");
         const response = await this.readMessage(stream);
+        console.log("[ByteCave P2P] Step 7: Response received:", response);
         await stream.close();
         if (response?.success) {
           return { success: true, cid };
