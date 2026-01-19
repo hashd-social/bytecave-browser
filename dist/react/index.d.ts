@@ -5,3 +5,4 @@
  */
 export * from './hooks.js';
 export * from './components.js';
+export { useHashdUrl } from './useHashdUrl.js';

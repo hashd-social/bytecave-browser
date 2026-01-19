@@ -56,3 +56,4 @@ export {
   HashdVideo,
   HashdAudio
 } from './react/components.js';
+export { useHashdUrl } from './react/useHashdUrl.js';

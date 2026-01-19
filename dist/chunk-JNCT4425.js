@@ -1,76 +1,11 @@
-"use strict";
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __export = (target, all) => {
-  for (var name2 in all)
-    __defProp(target, name2, { get: all[name2], enumerable: true });
-};
-var __copyProps = (to, from3, except, desc) => {
-  if (from3 && typeof from3 === "object" || typeof from3 === "function") {
-    for (let key of __getOwnPropNames(from3))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from3[key], enumerable: !(desc = __getOwnPropDesc(from3, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod2, isNodeMode, target) => (target = mod2 != null ? __create(__getProtoOf(mod2)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod2 || !mod2.__esModule ? __defProp(target, "default", { value: mod2, enumerable: true }) : target,
-  mod2
-));
-var __toCommonJS = (mod2) => __copyProps(__defProp({}, "__esModule", { value: true }), mod2);
-var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-
-// src/index.ts
-var src_exports = {};
-__export(src_exports, {
-  ByteCaveClient: () => ByteCaveClient,
-  ByteCaveProvider: () => ByteCaveProvider,
-  ContractDiscovery: () => ContractDiscovery,
-  HashdAudio: () => HashdAudio,
-  HashdImage: () => HashdImage,
-  HashdVideo: () => HashdVideo,
-  TEST_EXPORT: () => TEST_EXPORT,
-  clearHashdCache: () => clearHashdCache,
-  createHashdUrl: () => createHashdUrl,
-  fetchHashdContent: () => fetchHashdContent,
-  getHashdCacheStats: () => getHashdCacheStats,
-  p2pProtocolClient: () => p2pProtocolClient,
-  parseHashdUrl: () => parseHashdUrl,
-  prefetchHashdContent: () => prefetchHashdContent,
-  revokeHashdUrl: () => revokeHashdUrl,
-  useByteCaveContext: () => useByteCaveContext,
-  useHashdBatch: () => useHashdBatch,
-  useHashdContent: () => useHashdContent,
-  useHashdImage: () => useHashdImage,
-  useHashdMedia: () => useHashdMedia,
-  useHashdUrl: () => useHashdUrl
-});
-module.exports = __toCommonJS(src_exports);
-
-// src/client.ts
-var import_libp2p = require("libp2p");
-var import_webrtc = require("@libp2p/webrtc");
-var import_websockets = require("@libp2p/websockets");
-var import_libp2p_noise = require("@chainsafe/libp2p-noise");
-var import_libp2p_yamux = require("@chainsafe/libp2p-yamux");
-var import_floodsub = require("@libp2p/floodsub");
-var import_identify = require("@libp2p/identify");
-var import_bootstrap = require("@libp2p/bootstrap");
-var import_circuit_relay_v2 = require("@libp2p/circuit-relay-v2");
-var import_multiaddr = require("@multiformats/multiaddr");
-var import_uint8arrays = require("uint8arrays");
+import {
+  __publicField,
+  fetchHashdContent,
+  parseHashdUrl
+} from "./chunk-EEZWRIUI.js";
 
 // src/discovery.ts
-var import_ethers = require("ethers");
+import { ethers } from "ethers";
 var VAULT_REGISTRY_ABI = [
   "function getActiveNodes() external view returns (bytes32[] memory)",
   "function getNode(bytes32 nodeId) external view returns (tuple(address owner, bytes publicKey, string url, bytes32 metadataHash, uint256 registeredAt, bool active))",
@@ -78,8 +13,8 @@ var VAULT_REGISTRY_ABI = [
 ];
 var ContractDiscovery = class {
   constructor(contractAddress, rpcUrl) {
-    this.provider = new import_ethers.ethers.JsonRpcProvider(rpcUrl);
-    this.contract = new import_ethers.ethers.Contract(contractAddress, VAULT_REGISTRY_ABI, this.provider);
+    this.provider = new ethers.JsonRpcProvider(rpcUrl);
+    this.contract = new ethers.Contract(contractAddress, VAULT_REGISTRY_ABI, this.provider);
   }
   /**
    * Get all active nodes from the registry contract
@@ -94,7 +29,7 @@ var ContractDiscovery = class {
           nodes.push({
             nodeId,
             owner: node.owner,
-            publicKey: import_ethers.ethers.hexlify(node.publicKey),
+            publicKey: ethers.hexlify(node.publicKey),
             url: node.url,
             active: node.active
           });
@@ -125,7 +60,7 @@ var ContractDiscovery = class {
    * Note: This is a simplified version - actual peerId derivation is more complex
    */
   static publicKeyToPeerId(publicKey) {
-    return import_ethers.ethers.keccak256(publicKey).slice(0, 54);
+    return ethers.keccak256(publicKey).slice(0, 54);
   }
 };
 
@@ -1060,12 +995,12 @@ function digest(input, options) {
 var identity = { code, name, encode: encode3, digest };
 
 // node_modules/@libp2p/crypto/dist/src/keys/ecdsa/ecdsa.js
-var import_equals2 = require("uint8arrays/equals");
+import { equals as uint8ArrayEquals } from "uint8arrays/equals";
 
 // node_modules/uint8arraylist/dist/src/index.js
-var import_alloc = require("uint8arrays/alloc");
-var import_concat = require("uint8arrays/concat");
-var import_equals = require("uint8arrays/equals");
+import { allocUnsafe, alloc } from "uint8arrays/alloc";
+import { concat } from "uint8arrays/concat";
+import { equals as equals3 } from "uint8arrays/equals";
 var symbol = /* @__PURE__ */ Symbol.for("@achingbrain/uint8arraylist");
 function findBufAndOffset(bufs, index) {
   if (index == null || index < 0) {
@@ -1216,7 +1151,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
    */
   slice(beginInclusive, endExclusive) {
     const { bufs, length: length3 } = this._subList(beginInclusive, endExclusive);
-    return (0, import_concat.concat)(bufs, length3);
+    return concat(bufs, length3);
   }
   /**
    * Returns a alloc from the given start and end element index.
@@ -1229,7 +1164,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
     if (bufs.length === 1) {
       return bufs[0];
     }
-    return (0, import_concat.concat)(bufs, length3);
+    return concat(bufs, length3);
   }
   /**
    * Returns a allocList from the given start and end element index.
@@ -1357,7 +1292,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
     return view.getInt8(0);
   }
   setInt8(byteOffset, value) {
-    const buf = (0, import_alloc.allocUnsafe)(1);
+    const buf = allocUnsafe(1);
     const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     view.setInt8(0, value);
     this.write(buf, byteOffset);
@@ -1368,7 +1303,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
     return view.getInt16(0, littleEndian);
   }
   setInt16(byteOffset, value, littleEndian) {
-    const buf = (0, import_alloc.alloc)(2);
+    const buf = alloc(2);
     const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     view.setInt16(0, value, littleEndian);
     this.write(buf, byteOffset);
@@ -1379,7 +1314,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
     return view.getInt32(0, littleEndian);
   }
   setInt32(byteOffset, value, littleEndian) {
-    const buf = (0, import_alloc.alloc)(4);
+    const buf = alloc(4);
     const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     view.setInt32(0, value, littleEndian);
     this.write(buf, byteOffset);
@@ -1390,7 +1325,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
     return view.getBigInt64(0, littleEndian);
   }
   setBigInt64(byteOffset, value, littleEndian) {
-    const buf = (0, import_alloc.alloc)(8);
+    const buf = alloc(8);
     const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     view.setBigInt64(0, value, littleEndian);
     this.write(buf, byteOffset);
@@ -1401,7 +1336,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
     return view.getUint8(0);
   }
   setUint8(byteOffset, value) {
-    const buf = (0, import_alloc.allocUnsafe)(1);
+    const buf = allocUnsafe(1);
     const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     view.setUint8(0, value);
     this.write(buf, byteOffset);
@@ -1412,7 +1347,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
     return view.getUint16(0, littleEndian);
   }
   setUint16(byteOffset, value, littleEndian) {
-    const buf = (0, import_alloc.alloc)(2);
+    const buf = alloc(2);
     const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     view.setUint16(0, value, littleEndian);
     this.write(buf, byteOffset);
@@ -1423,7 +1358,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
     return view.getUint32(0, littleEndian);
   }
   setUint32(byteOffset, value, littleEndian) {
-    const buf = (0, import_alloc.alloc)(4);
+    const buf = alloc(4);
     const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     view.setUint32(0, value, littleEndian);
     this.write(buf, byteOffset);
@@ -1434,7 +1369,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
     return view.getBigUint64(0, littleEndian);
   }
   setBigUint64(byteOffset, value, littleEndian) {
-    const buf = (0, import_alloc.alloc)(8);
+    const buf = alloc(8);
     const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     view.setBigUint64(0, value, littleEndian);
     this.write(buf, byteOffset);
@@ -1445,7 +1380,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
     return view.getFloat32(0, littleEndian);
   }
   setFloat32(byteOffset, value, littleEndian) {
-    const buf = (0, import_alloc.alloc)(4);
+    const buf = alloc(4);
     const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     view.setFloat32(0, value, littleEndian);
     this.write(buf, byteOffset);
@@ -1456,7 +1391,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
     return view.getFloat64(0, littleEndian);
   }
   setFloat64(byteOffset, value, littleEndian) {
-    const buf = (0, import_alloc.alloc)(8);
+    const buf = alloc(8);
     const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     view.setFloat64(0, value, littleEndian);
     this.write(buf, byteOffset);
@@ -1472,7 +1407,7 @@ var Uint8ArrayList = class _Uint8ArrayList {
       return false;
     }
     for (let i = 0; i < this.bufs.length; i++) {
-      if (!(0, import_equals.equals)(this.bufs[i], other.bufs[i])) {
+      if (!equals3(this.bufs[i], other.bufs[i])) {
         return false;
       }
     }
@@ -1494,8 +1429,8 @@ var Uint8ArrayList = class _Uint8ArrayList {
 };
 
 // node_modules/@libp2p/crypto/dist/src/keys/ecdsa/utils.js
-var import_from_string = require("uint8arrays/from-string");
-var import_to_string = require("uint8arrays/to-string");
+import { fromString as uint8ArrayFromString } from "uint8arrays/from-string";
+import { toString as uint8ArrayToString } from "uint8arrays/to-string";
 
 // node_modules/@libp2p/crypto/dist/src/keys/rsa/der.js
 var TAG_MASK = parseInt("11111", 2);
@@ -1714,8 +1649,8 @@ function pkiMessageToECDSAPublicKey(message2) {
   let x;
   let y;
   if (coordinates.byteLength === P_256_KEY_LENGTH * 2 + 1) {
-    x = (0, import_to_string.toString)(coordinates.subarray(offset, offset + P_256_KEY_LENGTH), "base64url");
-    y = (0, import_to_string.toString)(coordinates.subarray(offset + P_256_KEY_LENGTH), "base64url");
+    x = uint8ArrayToString(coordinates.subarray(offset, offset + P_256_KEY_LENGTH), "base64url");
+    y = uint8ArrayToString(coordinates.subarray(offset + P_256_KEY_LENGTH), "base64url");
     return new ECDSAPublicKey({
       ...P_256_KEY_JWK,
       key_ops: ["verify"],
@@ -1724,8 +1659,8 @@ function pkiMessageToECDSAPublicKey(message2) {
     });
   }
   if (coordinates.byteLength === P_384_KEY_LENGTH * 2 + 1) {
-    x = (0, import_to_string.toString)(coordinates.subarray(offset, offset + P_384_KEY_LENGTH), "base64url");
-    y = (0, import_to_string.toString)(coordinates.subarray(offset + P_384_KEY_LENGTH), "base64url");
+    x = uint8ArrayToString(coordinates.subarray(offset, offset + P_384_KEY_LENGTH), "base64url");
+    y = uint8ArrayToString(coordinates.subarray(offset + P_384_KEY_LENGTH), "base64url");
     return new ECDSAPublicKey({
       ...P_384_KEY_JWK,
       key_ops: ["verify"],
@@ -1734,8 +1669,8 @@ function pkiMessageToECDSAPublicKey(message2) {
     });
   }
   if (coordinates.byteLength === P_521_KEY_LENGTH * 2 + 1) {
-    x = (0, import_to_string.toString)(coordinates.subarray(offset, offset + P_521_KEY_LENGTH), "base64url");
-    y = (0, import_to_string.toString)(coordinates.subarray(offset + P_521_KEY_LENGTH), "base64url");
+    x = uint8ArrayToString(coordinates.subarray(offset, offset + P_521_KEY_LENGTH), "base64url");
+    y = uint8ArrayToString(coordinates.subarray(offset + P_521_KEY_LENGTH), "base64url");
     return new ECDSAPublicKey({
       ...P_521_KEY_JWK,
       key_ops: ["verify"],
@@ -1753,7 +1688,7 @@ function publicKeyToPKIMessage(publicKey) {
       getOID(publicKey.crv)
     ], 160),
     encodeSequence([
-      encodeBitString(new Uint8ArrayList(Uint8Array.from([4]), (0, import_from_string.fromString)(publicKey.x ?? "", "base64url"), (0, import_from_string.fromString)(publicKey.y ?? "", "base64url")))
+      encodeBitString(new Uint8ArrayList(Uint8Array.from([4]), uint8ArrayFromString(publicKey.x ?? "", "base64url"), uint8ArrayFromString(publicKey.y ?? "", "base64url")))
     ], 161)
   ]).subarray();
 }
@@ -1797,7 +1732,7 @@ var ECDSAPublicKey = class {
     if (key == null || !(key.raw instanceof Uint8Array)) {
       return false;
     }
-    return (0, import_equals2.equals)(this.raw, key.raw);
+    return uint8ArrayEquals(this.raw, key.raw);
   }
   async verify(data, sig, options) {
     return hashAndVerify(this.jwk, sig, data, options);
@@ -1805,11 +1740,11 @@ var ECDSAPublicKey = class {
 };
 
 // node_modules/@libp2p/crypto/dist/src/keys/ed25519/index.js
-var import_crypto = __toESM(require("crypto"), 1);
-var import_concat2 = require("uint8arrays/concat");
-var import_from_string2 = require("uint8arrays/from-string");
-var import_to_string2 = require("uint8arrays/to-string");
-var keypair = import_crypto.default.generateKeyPairSync;
+import crypto2 from "crypto";
+import { concat as uint8arrayConcat } from "uint8arrays/concat";
+import { fromString as uint8arrayFromString } from "uint8arrays/from-string";
+import { toString as uint8arrayToString } from "uint8arrays/to-string";
+var keypair = crypto2.generateKeyPairSync;
 var PUBLIC_KEY_BYTE_LENGTH = 32;
 var SIGNATURE_BYTE_LENGTH = 64;
 function hashAndVerify2(key, sig, msg) {
@@ -1823,23 +1758,23 @@ function hashAndVerify2(key, sig, msg) {
   } else if (!(sig instanceof Uint8Array)) {
     throw new TypeError('"sig" must be a node.js Buffer, or Uint8Array.');
   }
-  const obj = import_crypto.default.createPublicKey({
+  const obj = crypto2.createPublicKey({
     format: "jwk",
     key: {
       crv: "Ed25519",
-      x: (0, import_to_string2.toString)(key, "base64url"),
+      x: uint8arrayToString(key, "base64url"),
       kty: "OKP"
     }
   });
-  return import_crypto.default.verify(null, msg instanceof Uint8Array ? msg : msg.subarray(), obj, sig);
+  return crypto2.verify(null, msg instanceof Uint8Array ? msg : msg.subarray(), obj, sig);
 }
 
 // node_modules/@libp2p/crypto/dist/src/keys/ed25519/ed25519.js
-var import_equals3 = require("uint8arrays/equals");
+import { equals as uint8ArrayEquals2 } from "uint8arrays/equals";
 
 // node_modules/@libp2p/crypto/dist/src/util.js
-var import_concat3 = require("uint8arrays/concat");
-var import_from_string3 = require("uint8arrays/from-string");
+import { concat as uint8ArrayConcat } from "uint8arrays/concat";
+import { fromString as uint8ArrayFromString2 } from "uint8arrays/from-string";
 function isPromise(thing) {
   if (thing == null) {
     return false;
@@ -1867,7 +1802,7 @@ var Ed25519PublicKey = class {
     if (key == null || !(key.raw instanceof Uint8Array)) {
       return false;
     }
-    return (0, import_equals3.equals)(this.raw, key.raw);
+    return uint8ArrayEquals2(this.raw, key.raw);
   }
   verify(data, sig, options) {
     options?.signal?.throwIfAborted();
@@ -1896,7 +1831,7 @@ function ensureEd25519Key(key, length3) {
 }
 
 // node_modules/uint8-varint/dist/src/index.js
-var import_alloc2 = require("uint8arrays/alloc");
+import { allocUnsafe as allocUnsafe2 } from "uint8arrays/alloc";
 var N12 = Math.pow(2, 7);
 var N22 = Math.pow(2, 14);
 var N32 = Math.pow(2, 21);
@@ -2637,11 +2572,11 @@ function decodeMessage(buf, codec, opts) {
 }
 
 // node_modules/protons-runtime/dist/src/utils/writer.js
-var import_alloc4 = require("uint8arrays/alloc");
-var import_from_string4 = require("uint8arrays/from-string");
+import { allocUnsafe as allocUnsafe4 } from "uint8arrays/alloc";
+import { fromString as uint8ArrayFromString3 } from "uint8arrays/from-string";
 
 // node_modules/protons-runtime/dist/src/utils/pool.js
-var import_alloc3 = require("uint8arrays/alloc");
+import { allocUnsafe as allocUnsafe3 } from "uint8arrays/alloc";
 function pool(size) {
   const SIZE = size ?? 8192;
   const MAX = SIZE >>> 1;
@@ -2649,10 +2584,10 @@ function pool(size) {
   let offset = SIZE;
   return function poolAlloc(size2) {
     if (size2 < 1 || size2 > MAX) {
-      return (0, import_alloc3.allocUnsafe)(size2);
+      return allocUnsafe3(size2);
     }
     if (offset + size2 > SIZE) {
-      slab = (0, import_alloc3.allocUnsafe)(SIZE);
+      slab = allocUnsafe3(SIZE);
       offset = 0;
     }
     const buf = slab.subarray(offset, offset += size2);
@@ -2717,7 +2652,7 @@ var State = class {
 var bufferPool = pool();
 function alloc2(size) {
   if (globalThis.Buffer != null) {
-    return (0, import_alloc4.allocUnsafe)(size);
+    return allocUnsafe4(size);
   }
   return bufferPool(size);
 }
@@ -3037,7 +2972,7 @@ function writeStringBuffer(val, buf, pos) {
   } else if (buf.utf8Write != null) {
     buf.utf8Write(val, pos);
   } else {
-    buf.set((0, import_from_string4.fromString)(val), pos);
+    buf.set(uint8ArrayFromString3(val), pos);
   }
 }
 function createWriter() {
@@ -3617,7 +3552,7 @@ var sha256 = /* @__PURE__ */ createHasher(
 );
 
 // node_modules/@libp2p/crypto/dist/src/keys/secp256k1/index.js
-var import_node_crypto = __toESM(require("crypto"), 1);
+import crypto3 from "crypto";
 
 // node_modules/@noble/curves/utils.js
 var _0n = /* @__PURE__ */ BigInt(0);
@@ -5380,7 +5315,7 @@ var VerificationError = class extends Error {
 // node_modules/@libp2p/crypto/dist/src/keys/secp256k1/index.js
 function hashAndVerify3(key, sig, msg, options) {
   options?.signal?.throwIfAborted();
-  const hash = import_node_crypto.default.createHash("sha256");
+  const hash = crypto3.createHash("sha256");
   if (msg instanceof Uint8Array) {
     hash.update(msg);
   } else {
@@ -5400,7 +5335,7 @@ function hashAndVerify3(key, sig, msg, options) {
 }
 
 // node_modules/@libp2p/crypto/dist/src/keys/secp256k1/secp256k1.js
-var import_equals4 = require("uint8arrays/equals");
+import { equals as uint8ArrayEquals3 } from "uint8arrays/equals";
 var Secp256k1PublicKey = class {
   constructor(key) {
     __publicField(this, "type", "secp256k1");
@@ -5422,7 +5357,7 @@ var Secp256k1PublicKey = class {
     if (key == null || !(key.raw instanceof Uint8Array)) {
       return false;
     }
-    return (0, import_equals4.equals)(this.raw, key.raw);
+    return uint8ArrayEquals3(this.raw, key.raw);
   }
   verify(data, sig, options) {
     return hashAndVerify3(this._key, sig, data, options);
@@ -5468,7 +5403,7 @@ function publicKeyToProtobuf(key) {
 }
 
 // node_modules/multiformats/dist/src/hashes/sha2.js
-var import_crypto2 = __toESM(require("crypto"), 1);
+import crypto4 from "crypto";
 
 // node_modules/multiformats/dist/src/hashes/hasher.js
 var DEFAULT_MIN_DIGEST_LENGTH = 20;
@@ -5522,21 +5457,21 @@ function createDigest(digest2, code2, truncate) {
 var sha2562 = from2({
   name: "sha2-256",
   code: 18,
-  encode: (input) => coerce(import_crypto2.default.createHash("sha256").update(input).digest())
+  encode: (input) => coerce(crypto4.createHash("sha256").update(input).digest())
 });
 var sha512 = from2({
   name: "sha2-512",
   code: 19,
-  encode: (input) => coerce(import_crypto2.default.createHash("sha512").update(input).digest())
+  encode: (input) => coerce(crypto4.createHash("sha512").update(input).digest())
 });
 
 // node_modules/@libp2p/peer-id/dist/src/index.js
-var import_to_string4 = require("uint8arrays/to-string");
+import { toString as uint8ArrayToString3 } from "uint8arrays/to-string";
 
 // node_modules/@libp2p/peer-id/dist/src/peer-id.js
-var import_equals5 = require("uint8arrays/equals");
-var import_from_string5 = require("uint8arrays/from-string");
-var import_to_string3 = require("uint8arrays/to-string");
+import { equals as uint8ArrayEquals4 } from "uint8arrays/equals";
+import { fromString as uint8ArrayFromString4 } from "uint8arrays/from-string";
+import { toString as uint8ArrayToString2 } from "uint8arrays/to-string";
 var inspect = /* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom");
 var LIBP2P_KEY_CODE = 114;
 var _a3;
@@ -5582,11 +5517,11 @@ var PeerIdImpl = class {
       return false;
     }
     if (id instanceof Uint8Array) {
-      return (0, import_equals5.equals)(this.multihash.bytes, id);
+      return uint8ArrayEquals4(this.multihash.bytes, id);
     } else if (typeof id === "string") {
       return this.toString() === id;
     } else if (id?.toMultihash()?.bytes != null) {
-      return (0, import_equals5.equals)(this.multihash.bytes, id.toMultihash().bytes);
+      return uint8ArrayEquals4(this.multihash.bytes, id.toMultihash().bytes);
     } else {
       throw new Error("not valid Id");
     }
@@ -5641,7 +5576,7 @@ var URLPeerId = class {
     __publicField(this, "url");
     __publicField(this, _a4, true);
     this.url = url.toString();
-    this.multihash = identity.digest((0, import_from_string5.fromString)(this.url));
+    this.multihash = identity.digest(uint8ArrayFromString4(this.url));
   }
   [(_b = inspect, _a4 = peerIdSymbol, _b)]() {
     return `PeerId(${this.url})`;
@@ -5663,7 +5598,7 @@ var URLPeerId = class {
       return false;
     }
     if (other instanceof Uint8Array) {
-      other = (0, import_to_string3.toString)(other);
+      other = uint8ArrayToString2(other);
     }
     return other.toString() === this.toString();
   }
@@ -5698,7 +5633,7 @@ function peerIdFromMultihash(multihash) {
         return new Secp256k1PeerId({ multihash, publicKey });
       }
     } catch (err) {
-      const url = (0, import_to_string4.toString)(multihash.digest);
+      const url = uint8ArrayToString3(multihash.digest);
       return new URLPeerId(new URL(url));
     }
   }
@@ -5709,7 +5644,7 @@ function peerIdFromCID(cid) {
     throw new InvalidCIDError("Supplied PeerID CID is invalid");
   }
   if (cid.code === TRANSPORT_IPFS_GATEWAY_HTTP_CODE2) {
-    const url = (0, import_to_string4.toString)(cid.multihash.digest);
+    const url = uint8ArrayToString3(cid.multihash.digest);
     return new URLPeerId(new URL(url));
   }
   return peerIdFromMultihash(cid.multihash);
@@ -5987,6 +5922,17 @@ var P2PProtocolClient = class {
 var p2pProtocolClient = new P2PProtocolClient();
 
 // src/client.ts
+import { createLibp2p } from "libp2p";
+import { webRTC } from "@libp2p/webrtc";
+import { webSockets } from "@libp2p/websockets";
+import { noise } from "@chainsafe/libp2p-noise";
+import { yamux } from "@chainsafe/libp2p-yamux";
+import { floodsub } from "@libp2p/floodsub";
+import { identify } from "@libp2p/identify";
+import { bootstrap } from "@libp2p/bootstrap";
+import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
+import { multiaddr } from "@multiformats/multiaddr";
+import { fromString, toString } from "uint8arrays";
 var ANNOUNCE_TOPIC = "bytecave-announce";
 var SIGNALING_TOPIC_PREFIX = "bytecave-signaling-";
 var ByteCaveClient = class {
@@ -6028,14 +5974,14 @@ var ByteCaveClient = class {
         console.warn("[ByteCave] No peers configured - will rely on contract discovery only");
       }
       console.log("[ByteCave] Bootstrap peers:", bootstrapPeers);
-      this.node = await (0, import_libp2p.createLibp2p)({
+      this.node = await createLibp2p({
         transports: [
-          (0, import_webrtc.webRTC)(),
-          (0, import_websockets.webSockets)(),
-          (0, import_circuit_relay_v2.circuitRelayTransport)()
+          webRTC(),
+          webSockets(),
+          circuitRelayTransport()
         ],
-        connectionEncrypters: [(0, import_libp2p_noise.noise)()],
-        streamMuxers: [(0, import_libp2p_yamux.yamux)()],
+        connectionEncrypters: [noise()],
+        streamMuxers: [yamux()],
         connectionGater: {
           denyDialMultiaddr: () => false,
           denyDialPeer: () => false,
@@ -6048,11 +5994,11 @@ var ByteCaveClient = class {
           filterMultiaddrForPeer: () => true
         },
         services: {
-          identify: (0, import_identify.identify)(),
-          pubsub: (0, import_floodsub.floodsub)()
+          identify: identify(),
+          pubsub: floodsub()
         },
         peerDiscovery: bootstrapPeers.length > 0 ? [
-          (0, import_bootstrap.bootstrap)({ list: bootstrapPeers })
+          bootstrap({ list: bootstrapPeers })
         ] : void 0
       });
       this.setupEventListeners();
@@ -6063,7 +6009,7 @@ var ByteCaveClient = class {
       for (const addr of bootstrapPeers) {
         try {
           console.log("[ByteCave] Dialing relay:", addr);
-          const ma = (0, import_multiaddr.multiaddr)(addr);
+          const ma = multiaddr(addr);
           const connection = await this.node.dial(ma);
           console.log("[ByteCave] \u2713 Connected to relay:", addr, "remotePeer:", connection.remotePeer.toString());
         } catch (err) {
@@ -6089,7 +6035,7 @@ var ByteCaveClient = class {
                 for (const addr of peer.multiaddrs) {
                   try {
                     console.log("[ByteCave] Trying multiaddr:", addr);
-                    const ma = (0, import_multiaddr.multiaddr)(addr);
+                    const ma = multiaddr(addr);
                     await this.node.dial(ma);
                     connected = true;
                     console.log("[ByteCave] \u2713 Connected via:", addr);
@@ -6353,7 +6299,7 @@ Nonce: ${nonce}`;
       if (relayAddrs && relayAddrs.length > 0 && this.node) {
         console.log("[ByteCave] Dialing peer through relay:", peerId.slice(0, 12), relayAddrs[0]);
         try {
-          const ma = (0, import_multiaddr.multiaddr)(relayAddrs[0]);
+          const ma = multiaddr(relayAddrs[0]);
           await this.node.dial(ma);
           console.log("[ByteCave] Successfully dialed peer through relay");
         } catch (dialError) {
@@ -6425,7 +6371,7 @@ Nonce: ${nonce}`;
       console.log("[ByteCave] Received floodsub message on topic:", topic);
       if (topic === ANNOUNCE_TOPIC) {
         try {
-          const data = (0, import_uint8arrays.toString)(event.detail.data);
+          const data = toString(event.detail.data);
           const announcement = JSON.parse(data);
           console.log("[ByteCave] Received peer announcement:", announcement.peerId?.slice(0, 12));
           this.handlePeerAnnouncement(announcement);
@@ -6435,7 +6381,7 @@ Nonce: ${nonce}`;
       }
       if (topic === mySignalingTopic) {
         try {
-          const data = (0, import_uint8arrays.toString)(event.detail.data);
+          const data = toString(event.detail.data);
           const signal = JSON.parse(data);
           this.handleSignalingMessage(signal);
         } catch (error) {
@@ -6493,7 +6439,7 @@ Nonce: ${nonce}`;
       from: this.node.peerId.toString()
     };
     try {
-      await pubsub.publish(targetTopic, (0, import_uint8arrays.fromString)(JSON.stringify(message2)));
+      await pubsub.publish(targetTopic, fromString(JSON.stringify(message2)));
     } catch (error) {
       console.warn("Failed to send signaling message:", error);
     }
@@ -6520,8 +6466,8 @@ Nonce: ${nonce}`;
 };
 
 // src/provider.tsx
-var import_react = __toESM(require("react"), 1);
-var ByteCaveContext = (0, import_react.createContext)(null);
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+var ByteCaveContext = createContext(null);
 var globalClient = null;
 function ByteCaveProvider({
   children,
@@ -6530,11 +6476,11 @@ function ByteCaveProvider({
   relayPeers = [],
   directNodeAddrs = []
 }) {
-  const [connectionState, setConnectionState] = (0, import_react.useState)("disconnected");
-  const [peers, setPeers] = (0, import_react.useState)([]);
-  const [error, setError] = (0, import_react.useState)(null);
-  const connectCalledRef = (0, import_react.useRef)(false);
-  const connect = (0, import_react.useCallback)(async () => {
+  const [connectionState, setConnectionState] = useState("disconnected");
+  const [peers, setPeers] = useState([]);
+  const [error, setError] = useState(null);
+  const connectCalledRef = useRef(false);
+  const connect = useCallback(async () => {
     if (!globalClient) {
       setError("ByteCave client not initialized");
       return;
@@ -6553,7 +6499,7 @@ function ByteCaveProvider({
       setConnectionState("error");
     }
   }, []);
-  (0, import_react.useEffect)(() => {
+  useEffect(() => {
     if (!contractAddress) {
       return;
     }
@@ -6644,179 +6590,33 @@ function ByteCaveProvider({
     getNodeHealth,
     error
   };
-  return /* @__PURE__ */ import_react.default.createElement(ByteCaveContext.Provider, { value }, children);
+  return /* @__PURE__ */ React.createElement(ByteCaveContext.Provider, { value }, children);
 }
 function useByteCaveContext() {
-  const context = (0, import_react.useContext)(ByteCaveContext);
+  const context = useContext(ByteCaveContext);
   if (!context) {
     throw new Error("useByteCaveContext must be used within ByteCaveProvider");
   }
   return context;
 }
 
-// src/protocol-handler.ts
-function parseHashdUrl(url) {
-  if (!url.startsWith("hashd://")) {
-    throw new Error(`Invalid hashd:// URL: ${url}`);
-  }
-  const withoutProtocol = url.slice(8);
-  const [cid, queryString] = withoutProtocol.split("?");
-  if (!cid || cid.length === 0) {
-    throw new Error(`Invalid hashd:// URL: missing CID`);
-  }
-  const result = {
-    protocol: "hashd:",
-    cid,
-    raw: url
-  };
-  if (queryString) {
-    const params = new URLSearchParams(queryString);
-    if (params.has("type")) {
-      result.mimeType = params.get("type");
-    }
-    if (params.has("decrypt")) {
-      result.decrypt = params.get("decrypt") === "true";
-    }
-  }
-  return result;
-}
-function createHashdUrl(cid, options) {
-  let url = `hashd://${cid}`;
-  if (options) {
-    const params = new URLSearchParams();
-    if (options.mimeType) {
-      params.set("type", options.mimeType);
-    }
-    if (options.decrypt !== void 0) {
-      params.set("decrypt", String(options.decrypt));
-    }
-    const queryString = params.toString();
-    if (queryString) {
-      url += `?${queryString}`;
-    }
-  }
-  return url;
-}
-var BlobUrlCache = class {
-  constructor() {
-    this.cache = /* @__PURE__ */ new Map();
-    this.maxAge = 60 * 60 * 1e3;
-  }
-  // 1 hour
-  set(cid, blobUrl, mimeType) {
-    this.cache.set(cid, { blobUrl, mimeType, timestamp: Date.now() });
-  }
-  get(cid) {
-    const entry = this.cache.get(cid);
-    if (!entry) {
-      return null;
-    }
-    if (Date.now() - entry.timestamp > this.maxAge) {
-      this.revoke(cid);
-      return null;
-    }
-    return { blobUrl: entry.blobUrl, mimeType: entry.mimeType };
-  }
-  revoke(cid) {
-    const entry = this.cache.get(cid);
-    if (entry) {
-      URL.revokeObjectURL(entry.blobUrl);
-      this.cache.delete(cid);
-    }
-  }
-  clear() {
-    for (const entry of this.cache.values()) {
-      URL.revokeObjectURL(entry.blobUrl);
-    }
-    this.cache.clear();
-  }
-  size() {
-    return this.cache.size;
-  }
-};
-var blobCache = new BlobUrlCache();
-function detectMimeType(data) {
-  if (data.length < 4) {
-    return "application/octet-stream";
-  }
-  if (data[0] === 137 && data[1] === 80 && data[2] === 78 && data[3] === 71) {
-    return "image/png";
-  }
-  if (data[0] === 255 && data[1] === 216 && data[2] === 255) {
-    return "image/jpeg";
-  }
-  if (data[0] === 71 && data[1] === 73 && data[2] === 70) {
-    return "image/gif";
-  }
-  if (data[0] === 82 && data[1] === 73 && data[2] === 70 && data[3] === 70 && data[8] === 87 && data[9] === 69 && data[10] === 66 && data[11] === 80) {
-    return "image/webp";
-  }
-  if (data.length >= 12 && data[4] === 102 && data[5] === 116 && data[6] === 121 && data[7] === 112) {
-    return "video/mp4";
-  }
-  return "application/octet-stream";
-}
-async function fetchHashdContent(url, client, options) {
-  const parsed = typeof url === "string" ? parseHashdUrl(url) : url;
-  const cached = blobCache.get(parsed.cid);
-  if (cached) {
-    console.log(`[HashD] Cache hit for CID: ${parsed.cid.slice(0, 16)}...`);
-    return {
-      data: new Uint8Array(),
-      // Don't return data for cached items
-      mimeType: cached.mimeType,
-      blobUrl: cached.blobUrl,
-      cached: true
-    };
-  }
-  console.log(`[HashD] Fetching CID: ${parsed.cid.slice(0, 16)}...`);
-  const result = await client.retrieve(parsed.cid);
-  if (!result.success || !result.data) {
-    throw new Error(result.error || "Failed to retrieve content");
-  }
-  const mimeType = parsed.mimeType || detectMimeType(result.data);
-  const dataCopy = new Uint8Array(result.data);
-  const blob = new Blob([dataCopy], { type: mimeType });
-  const blobUrl = URL.createObjectURL(blob);
-  blobCache.set(parsed.cid, blobUrl, mimeType);
-  console.log(`[HashD] Retrieved and cached CID: ${parsed.cid.slice(0, 16)}... (${mimeType})`);
-  return {
-    data: result.data,
-    mimeType,
-    blobUrl,
-    cached: false
-  };
-}
-async function prefetchHashdContent(url, client) {
-  await fetchHashdContent(url, client);
-}
-function clearHashdCache() {
-  blobCache.clear();
-}
-function getHashdCacheStats() {
-  return { size: blobCache.size() };
-}
-function revokeHashdUrl(cid) {
-  blobCache.revoke(cid);
-}
-
 // src/react/hooks.ts
-var import_react2 = require("react");
+import { useState as useState2, useEffect as useEffect2, useCallback as useCallback2, useRef as useRef2 } from "react";
 function useHashdContent(url, options) {
   const { client, enabled = true, onSuccess, onError } = options;
-  const [blobUrl, setBlobUrl] = (0, import_react2.useState)(null);
-  const [data, setData] = (0, import_react2.useState)(null);
-  const [mimeType, setMimeType] = (0, import_react2.useState)(null);
-  const [loading, setLoading] = (0, import_react2.useState)(false);
-  const [error, setError] = (0, import_react2.useState)(null);
-  const [cached, setCached] = (0, import_react2.useState)(false);
-  const [refetchTrigger, setRefetchTrigger] = (0, import_react2.useState)(0);
-  const mountedRef = (0, import_react2.useRef)(true);
-  const abortControllerRef = (0, import_react2.useRef)(null);
-  const refetch = (0, import_react2.useCallback)(() => {
+  const [blobUrl, setBlobUrl] = useState2(null);
+  const [data, setData] = useState2(null);
+  const [mimeType, setMimeType] = useState2(null);
+  const [loading, setLoading] = useState2(false);
+  const [error, setError] = useState2(null);
+  const [cached, setCached] = useState2(false);
+  const [refetchTrigger, setRefetchTrigger] = useState2(0);
+  const mountedRef = useRef2(true);
+  const abortControllerRef = useRef2(null);
+  const refetch = useCallback2(() => {
     setRefetchTrigger((prev) => prev + 1);
   }, []);
-  (0, import_react2.useEffect)(() => {
+  useEffect2(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
@@ -6825,7 +6625,7 @@ function useHashdContent(url, options) {
       }
     };
   }, []);
-  (0, import_react2.useEffect)(() => {
+  useEffect2(() => {
     if (!url || !enabled || !client) {
       setBlobUrl(null);
       setData(null);
@@ -6902,10 +6702,10 @@ function useHashdMedia(url, options) {
   };
 }
 function useHashdBatch(urls, options) {
-  const [results, setResults] = (0, import_react2.useState)(/* @__PURE__ */ new Map());
-  const [loading, setLoading] = (0, import_react2.useState)(false);
-  const [errors, setErrors] = (0, import_react2.useState)(/* @__PURE__ */ new Map());
-  (0, import_react2.useEffect)(() => {
+  const [results, setResults] = useState2(/* @__PURE__ */ new Map());
+  const [loading, setLoading] = useState2(false);
+  const [errors, setErrors] = useState2(/* @__PURE__ */ new Map());
+  useEffect2(() => {
     if (!options.client || !options.enabled) {
       return;
     }
@@ -6949,7 +6749,7 @@ function useHashdBatch(urls, options) {
 }
 
 // src/react/components.tsx
-var import_react3 = __toESM(require("react"), 1);
+import React2 from "react";
 function HashdImage({
   src: src2,
   client,
@@ -6967,12 +6767,12 @@ function HashdImage({
     onError: onHashdError
   });
   if (loading && loadingComponent) {
-    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, loadingComponent);
+    return /* @__PURE__ */ React2.createElement(React2.Fragment, null, loadingComponent);
   }
   if (error && errorComponent) {
-    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, errorComponent);
+    return /* @__PURE__ */ React2.createElement(React2.Fragment, null, errorComponent);
   }
-  return /* @__PURE__ */ import_react3.default.createElement("img", { ...imgProps, src: blobUrl });
+  return /* @__PURE__ */ React2.createElement("img", { ...imgProps, src: blobUrl });
 }
 function HashdVideo({
   src: src2,
@@ -6989,12 +6789,12 @@ function HashdVideo({
     onError: onHashdError
   });
   if (loading && loadingComponent) {
-    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, loadingComponent);
+    return /* @__PURE__ */ React2.createElement(React2.Fragment, null, loadingComponent);
   }
   if (error && errorComponent) {
-    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, errorComponent);
+    return /* @__PURE__ */ React2.createElement(React2.Fragment, null, errorComponent);
   }
-  return /* @__PURE__ */ import_react3.default.createElement("video", { ...videoProps, src: blobUrl });
+  return /* @__PURE__ */ React2.createElement("video", { ...videoProps, src: blobUrl });
 }
 function HashdAudio({
   src: src2,
@@ -7011,22 +6811,26 @@ function HashdAudio({
     onError: onHashdError
   });
   if (loading && loadingComponent) {
-    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, loadingComponent);
+    return /* @__PURE__ */ React2.createElement(React2.Fragment, null, loadingComponent);
   }
   if (error && errorComponent) {
-    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, errorComponent);
+    return /* @__PURE__ */ React2.createElement(React2.Fragment, null, errorComponent);
   }
-  return /* @__PURE__ */ import_react3.default.createElement("audio", { ...audioProps, src: blobUrl });
+  return /* @__PURE__ */ React2.createElement("audio", { ...audioProps, src: blobUrl });
+}
+function HashdContent({ url, client, children }) {
+  const { blobUrl, loading, error, mimeType } = useHashdImage(url, { client });
+  return /* @__PURE__ */ React2.createElement(React2.Fragment, null, children({ blobUrl, loading, error, mimeType }));
 }
 
 // src/react/useHashdUrl.ts
-var import_react4 = require("react");
+import { useState as useState3, useEffect as useEffect3 } from "react";
 function useHashdUrl(hashdUrl) {
   const { retrieve } = useByteCaveContext();
-  const [blobUrl, setBlobUrl] = (0, import_react4.useState)(null);
-  const [loading, setLoading] = (0, import_react4.useState)(false);
-  const [error, setError] = (0, import_react4.useState)(null);
-  (0, import_react4.useEffect)(() => {
+  const [blobUrl, setBlobUrl] = useState3(null);
+  const [loading, setLoading] = useState3(false);
+  const [error, setError] = useState3(null);
+  useEffect3(() => {
     if (!hashdUrl || !hashdUrl.startsWith("hashd://")) {
       setBlobUrl(null);
       setLoading(false);
@@ -7064,32 +6868,22 @@ function useHashdUrl(hashdUrl) {
   return { blobUrl, loading, error };
 }
 
-// src/index.ts
-var TEST_EXPORT = "ByteCave Browser Package v1.0.0";
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
+export {
+  ContractDiscovery,
+  p2pProtocolClient,
   ByteCaveClient,
   ByteCaveProvider,
-  ContractDiscovery,
-  HashdAudio,
-  HashdImage,
-  HashdVideo,
-  TEST_EXPORT,
-  clearHashdCache,
-  createHashdUrl,
-  fetchHashdContent,
-  getHashdCacheStats,
-  p2pProtocolClient,
-  parseHashdUrl,
-  prefetchHashdContent,
-  revokeHashdUrl,
   useByteCaveContext,
-  useHashdBatch,
   useHashdContent,
   useHashdImage,
   useHashdMedia,
+  useHashdBatch,
+  HashdImage,
+  HashdVideo,
+  HashdAudio,
+  HashdContent,
   useHashdUrl
-});
+};
 /*! Bundled license information:
 
 @noble/hashes/utils.js:

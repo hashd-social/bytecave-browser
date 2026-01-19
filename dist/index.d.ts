@@ -15,3 +15,4 @@ export { parseHashdUrl, createHashdUrl, fetchHashdContent, prefetchHashdContent,
 export type { HashdUrl, FetchOptions, FetchResult } from './protocol-handler.js';
 export { useHashdContent, useHashdImage, useHashdMedia, useHashdBatch } from './react/hooks.js';
 export { HashdImage, HashdVideo, HashdAudio } from './react/components.js';
+export { useHashdUrl } from './react/useHashdUrl.js';

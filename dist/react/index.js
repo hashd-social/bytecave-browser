@@ -6,8 +6,9 @@ import {
   useHashdBatch,
   useHashdContent,
   useHashdImage,
-  useHashdMedia
-} from "../chunk-D57C5P6J.js";
+  useHashdMedia,
+  useHashdUrl
+} from "../chunk-JNCT4425.js";
 import "../chunk-EEZWRIUI.js";
 export {
   HashdAudio,
@@ -17,5 +18,6 @@ export {
   useHashdBatch,
   useHashdContent,
   useHashdImage,
-  useHashdMedia
+  useHashdMedia,
+  useHashdUrl
 };
