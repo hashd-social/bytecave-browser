@@ -6606,6 +6606,19 @@ function ByteCaveProvider({
       }
     };
   }, []);
+  (0, import_react.useEffect)(() => {
+    const reconnectInterval = setInterval(async () => {
+      if (peers.length === 0 && connectionState === "connected" && globalClient) {
+        console.log("[ByteCaveProvider] No peers connected, attempting reconnection...");
+        try {
+          await connect();
+        } catch (err) {
+          console.error("[ByteCaveProvider] Reconnection failed:", err);
+        }
+      }
+    }, 5e3);
+    return () => clearInterval(reconnectInterval);
+  }, [peers.length, connectionState, connect]);
   const disconnect = async () => {
     if (!globalClient) return;
     try {
