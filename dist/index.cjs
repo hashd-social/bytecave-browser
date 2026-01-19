@@ -6249,10 +6249,15 @@ Nonce: ${nonce}`;
    */
   async retrieve(cid) {
     if (!this.node) {
+      console.error("[ByteCave] Retrieve failed: P2P node not initialized");
       return { success: false, error: "P2P node not initialized" };
     }
     const libp2pPeers = this.node.getPeers();
+    console.log("[ByteCave] Retrieve - libp2p peers:", libp2pPeers.length);
+    console.log("[ByteCave] Retrieve - known peers:", this.knownPeers.size);
+    console.log("[ByteCave] Retrieve - node status:", this.node.status);
     if (libp2pPeers.length === 0) {
+      console.warn("[ByteCave] Retrieve failed: No libp2p peers connected, but have", this.knownPeers.size, "known peers");
       return { success: false, error: "No connected peers available" };
     }
     const peersWithCid = [];
