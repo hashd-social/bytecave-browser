@@ -76,6 +76,7 @@ export interface StoreRequest {
   ciphertext: string; // base64 encoded
   appId?: string;
   contentType?: string;
+  shouldVerifyOnChain?: boolean;
   sender?: string;
   timestamp?: number;
   metadata?: Record<string, any>;
@@ -106,7 +107,8 @@ export class P2PProtocolClient {
     ciphertext: Uint8Array,
     mimeType: string,
     contentType?: string,
-    authorization?: any
+    authorization?: any,
+    shouldVerifyOnChain?: boolean
   ): Promise<StoreResponse> {
     if (!this.node) {
       return { success: false, error: 'P2P node not initialized' };
@@ -141,10 +143,10 @@ export class P2PProtocolClient {
           mimeType,
           ciphertext: this.uint8ArrayToBase64(ciphertext),
           appId: authorization?.appId || 'hashd',
-          contentType: contentType || 'media',
+          contentType: contentType,
+          shouldVerifyOnChain: shouldVerifyOnChain ?? false,
           sender: authorization?.sender,
           timestamp: authorization?.timestamp || Date.now(),
-          metadata: {},
           authorization
         };
         console.log('[ByteCave P2P] Step 4: Request prepared, size:', JSON.stringify(request).length, 'bytes');

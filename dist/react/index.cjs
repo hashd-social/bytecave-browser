@@ -6016,7 +6016,7 @@ var P2PProtocolClient = class {
   /**
    * Store a blob on a peer via P2P stream
    */
-  async storeToPeer(peerId, ciphertext, mimeType, contentType, authorization) {
+  async storeToPeer(peerId, ciphertext, mimeType, contentType, authorization, shouldVerifyOnChain) {
     if (!this.node) {
       return { success: false, error: "P2P node not initialized" };
     }
@@ -6039,10 +6039,10 @@ var P2PProtocolClient = class {
           mimeType,
           ciphertext: this.uint8ArrayToBase64(ciphertext),
           appId: authorization?.appId || "hashd",
-          contentType: contentType || "media",
+          contentType,
+          shouldVerifyOnChain: shouldVerifyOnChain ?? false,
           sender: authorization?.sender,
           timestamp: authorization?.timestamp || Date.now(),
-          metadata: {},
           authorization
         };
         console.log("[ByteCave P2P] Step 4: Request prepared, size:", JSON.stringify(request).length, "bytes");

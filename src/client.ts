@@ -418,7 +418,8 @@ Nonce: ${nonce}`;
           dataArray,
           'application/octet-stream',
           contentType,
-          authorization
+          authorization,
+          false // shouldVerifyOnChain - false for browser test storage
         );
 
         if (result.success && result.cid) {
