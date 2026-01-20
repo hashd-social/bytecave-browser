@@ -316,14 +316,14 @@ export class ByteCaveClient {
   }
 
   /**
-   * Store ciphertext on a node via P2P
+   * Store data on the network
    * Uses getPeers() directly for fast peer access
    * 
    * @param data - Data to store
-   * @param contentType - MIME type
+   * @param mimeType - MIME type (optional, defaults to 'application/octet-stream')
    * @param signer - Ethers signer for authorization (optional, but required for most nodes)
    */
-  async store(data: Uint8Array | ArrayBuffer, contentType?: string, signer?: any): Promise<StoreResult> {
+  async store(data: Uint8Array | ArrayBuffer, mimeType?: string, signer?: any): Promise<StoreResult> {
     if (!this.node) {
       return { success: false, error: 'P2P node not initialized' };
     }
@@ -397,8 +397,7 @@ Nonce: ${nonce}`;
           timestamp,
           nonce,
           contentHash,
-          appId: this.config.appId,
-          contentType
+          appId: this.config.appId
         };
         
         console.log('[ByteCave] Created authorization for storage request');
@@ -416,8 +415,7 @@ Nonce: ${nonce}`;
         const result = await p2pProtocolClient.storeToPeer(
           peerId,
           dataArray,
-          'application/octet-stream',
-          contentType,
+          mimeType || 'application/octet-stream',
           authorization,
           false // shouldVerifyOnChain - false for browser test storage
         );

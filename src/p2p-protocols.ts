@@ -75,7 +75,6 @@ export interface StoreRequest {
   mimeType: string;
   ciphertext: string; // base64 encoded
   appId?: string;
-  contentType?: string;
   shouldVerifyOnChain?: boolean;
   sender?: string;
   timestamp?: number;
@@ -106,7 +105,6 @@ export class P2PProtocolClient {
     peerId: string,
     ciphertext: Uint8Array,
     mimeType: string,
-    contentType?: string,
     authorization?: any,
     shouldVerifyOnChain?: boolean
   ): Promise<StoreResponse> {
@@ -143,7 +141,6 @@ export class P2PProtocolClient {
           mimeType,
           ciphertext: this.uint8ArrayToBase64(ciphertext),
           appId: authorization?.appId || 'hashd',
-          contentType: contentType,
           shouldVerifyOnChain: shouldVerifyOnChain ?? false,
           sender: authorization?.sender,
           timestamp: authorization?.timestamp || Date.now(),

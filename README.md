@@ -124,14 +124,16 @@ Stop the P2P client and disconnect from all peers.
 await client.stop();
 ```
 
-**`store(data: Uint8Array, contentType?: string): Promise<StoreResult>`**
+**`store(data: Uint8Array, mimeType?: string, signer?: any): Promise<StoreResult>`**
 
 Store data on the network.
 
 ```typescript
-const result = await client.store(data, 'application/json');
+const result = await client.store(data, 'text/plain', signer);
 // Returns: { success: true, cid: '...', peerId: '...' }
 ```
+
+**Note:** `mimeType` is optional and defaults to `'application/octet-stream'`. Use standard MIME types like `'text/plain'`, `'image/jpeg'`, `'application/json'`, etc.
 
 **`retrieve(cid: string): Promise<RetrieveResult>`**
 
