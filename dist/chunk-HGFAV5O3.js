@@ -6209,7 +6209,7 @@ var ByteCaveClient = class {
         const contentHash = ethers2.keccak256(dataArray);
         const timestamp = Date.now();
         const nonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        const message2 = `ByteCave Storage Request for Content Hash
+        const message2 = `ByteCave Storage Request for
 Content Hash: ${contentHash}
 App ID: ${this.config.appId}
 Timestamp: ${timestamp}
