@@ -6663,6 +6663,7 @@ var globalClient = null;
 function ByteCaveProvider({
   children,
   contractAddress,
+  contentRegistryAddress,
   rpcUrl,
   appId,
   relayPeers = [],
@@ -6703,6 +6704,7 @@ function ByteCaveProvider({
       console.log("[ByteCaveProvider] Creating new ByteCaveClient");
       globalClient = new ByteCaveClient({
         contractAddress,
+        contentRegistryAddress,
         rpcUrl,
         appId,
         directNodeAddrs,
@@ -6800,6 +6802,12 @@ function ByteCaveProvider({
     }
     return globalClient.getNodeHealth(peerId);
   };
+  const registerContent = async (cid, appId2, signer) => {
+    if (!globalClient) {
+      return { success: false, error: "Client not initialized" };
+    }
+    return globalClient.registerContent(cid, appId2, signer);
+  };
   const value = {
     connectionState,
     peers,
@@ -6809,6 +6817,7 @@ function ByteCaveProvider({
     disconnect,
     store,
     retrieve,
+    registerContent,
     getNodeHealth,
     error
   };

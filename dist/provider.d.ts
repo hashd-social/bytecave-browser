@@ -37,17 +37,23 @@ interface ByteCaveContextValue {
     disconnect: () => Promise<void>;
     store: (data: Uint8Array, mimeType?: string, signer?: any) => Promise<StoreResult>;
     retrieve: (cid: string) => Promise<RetrieveResult>;
+    registerContent: (cid: string, appId: string, signer: any) => Promise<{
+        success: boolean;
+        txHash?: string;
+        error?: string;
+    }>;
     getNodeHealth: (peerId: string) => Promise<NodeHealth | null>;
     error: string | null;
 }
 interface ByteCaveProviderProps {
     children: ReactNode;
     contractAddress: string;
+    contentRegistryAddress?: string;
     rpcUrl: string;
     appId: string;
     relayPeers?: string[];
     directNodeAddrs?: string[];
 }
-export declare function ByteCaveProvider({ children, contractAddress, rpcUrl, appId, relayPeers, directNodeAddrs }: ByteCaveProviderProps): React.JSX.Element;
+export declare function ByteCaveProvider({ children, contractAddress, contentRegistryAddress, rpcUrl, appId, relayPeers, directNodeAddrs }: ByteCaveProviderProps): React.JSX.Element;
 export declare function useByteCaveContext(): ByteCaveContextValue;
 export {};

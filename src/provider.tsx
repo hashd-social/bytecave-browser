@@ -41,6 +41,7 @@ interface ByteCaveContextValue {
   disconnect: () => Promise<void>;
   store: (data: Uint8Array, mimeType?: string, signer?: any) => Promise<StoreResult>;
   retrieve: (cid: string) => Promise<RetrieveResult>;
+  registerContent: (cid: string, appId: string, signer: any) => Promise<{ success: boolean; txHash?: string; error?: string }>;
   getNodeHealth: (peerId: string) => Promise<NodeHealth | null>;
   error: string | null;
 }
@@ -50,6 +51,7 @@ const ByteCaveContext = createContext<ByteCaveContextValue | null>(null);
 interface ByteCaveProviderProps {
   children: ReactNode;
   contractAddress: string;
+  contentRegistryAddress?: string;
   rpcUrl: string;
   appId: string;
   relayPeers?: string[];
@@ -60,7 +62,8 @@ let globalClient: ByteCaveClient | null = null;
 
 export function ByteCaveProvider({ 
   children, 
-  contractAddress, 
+  contractAddress,
+  contentRegistryAddress,
   rpcUrl,
   appId,
   relayPeers = [],
@@ -109,6 +112,7 @@ export function ByteCaveProvider({
       console.log('[ByteCaveProvider] Creating new ByteCaveClient');
       globalClient = new ByteCaveClient({
         contractAddress,
+        contentRegistryAddress,
         rpcUrl,
         appId,
         directNodeAddrs,
@@ -223,6 +227,13 @@ export function ByteCaveProvider({
     return (globalClient as any).getNodeHealth(peerId);
   };
 
+  const registerContent = async (cid: string, appId: string, signer: any): Promise<{ success: boolean; txHash?: string; error?: string }> => {
+    if (!globalClient) {
+      return { success: false, error: 'Client not initialized' };
+    }
+    return globalClient.registerContent(cid, appId, signer);
+  };
+
   const value: ByteCaveContextValue = {
     connectionState,
     peers,
@@ -232,6 +243,7 @@ export function ByteCaveProvider({
     disconnect,
     store,
     retrieve,
+    registerContent,
     getNodeHealth,
     error
   };
