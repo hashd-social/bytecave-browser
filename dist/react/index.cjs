@@ -404,6 +404,7 @@ var import_bootstrap = require("@libp2p/bootstrap");
 var import_circuit_relay_v2 = require("@libp2p/circuit-relay-v2");
 var import_multiaddr = require("@multiformats/multiaddr");
 var import_uint8arrays = require("uint8arrays");
+var import_ethers2 = require("ethers");
 
 // src/discovery.ts
 var import_ethers = require("ethers");
@@ -6016,7 +6017,7 @@ var P2PProtocolClient = class {
   /**
    * Store a blob on a peer via P2P stream
    */
-  async storeToPeer(peerId, ciphertext, mimeType, contentType, authorization, shouldVerifyOnChain) {
+  async storeToPeer(peerId, ciphertext, mimeType, authorization, shouldVerifyOnChain) {
     if (!this.node) {
       return { success: false, error: "P2P node not initialized" };
     }
@@ -6039,7 +6040,6 @@ var P2PProtocolClient = class {
           mimeType,
           ciphertext: this.uint8ArrayToBase64(ciphertext),
           appId: authorization?.appId || "hashd",
-          contentType,
           shouldVerifyOnChain: shouldVerifyOnChain ?? false,
           sender: authorization?.sender,
           timestamp: authorization?.timestamp || Date.now(),

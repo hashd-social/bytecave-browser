@@ -16,8 +16,10 @@ import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { multiaddr } from '@multiformats/multiaddr';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { fromString, toString } from 'uint8arrays';
+import { ethers } from 'ethers';
 import { ContractDiscovery } from './discovery.js';
 import { p2pProtocolClient } from './p2p-protocols.js';
+import { CONTENT_REGISTRY_ABI } from './contracts/ContentRegistry.js';
 import type { 
   ByteCaveConfig, 
   PeerInfo, 
@@ -504,6 +506,80 @@ Nonce: ${nonce}`;
     }
 
     return { success: false, error: 'Failed to retrieve blob from peers that have it' };
+  }
+
+  /**
+   * Register content in ContentRegistry contract (on-chain)
+   * This must be called before storing content that requires on-chain verification
+   */
+  async registerContent(
+    cid: string,
+    appId: string,
+    signer: ethers.Signer
+  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    if (!this.config.contentRegistryAddress) {
+      return { 
+        success: false, 
+        error: 'ContentRegistry address not configured' 
+      };
+    }
+
+    if (!this.config.rpcUrl) {
+      return { 
+        success: false, 
+        error: 'RPC URL not configured' 
+      };
+    }
+
+    try {
+      console.log('[ByteCave] Registering content in ContentRegistry:', { cid, appId });
+
+      const contract = new ethers.Contract(
+        this.config.contentRegistryAddress,
+        CONTENT_REGISTRY_ABI,
+        signer
+      );
+
+      const tx = await contract.registerContent(cid, appId);
+      console.log('[ByteCave] ContentRegistry transaction sent:', tx.hash);
+
+      const receipt = await tx.wait();
+      console.log('[ByteCave] ContentRegistry registration confirmed:', receipt.hash);
+
+      return { 
+        success: true, 
+        txHash: receipt.hash 
+      };
+    } catch (error: any) {
+      console.error('[ByteCave] ContentRegistry registration failed:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Registration failed' 
+      };
+    }
+  }
+
+  /**
+   * Check if content is registered in ContentRegistry
+   */
+  async isContentRegistered(cid: string): Promise<boolean> {
+    if (!this.config.contentRegistryAddress || !this.config.rpcUrl) {
+      return false;
+    }
+
+    try {
+      const provider = new ethers.JsonRpcProvider(this.config.rpcUrl);
+      const contract = new ethers.Contract(
+        this.config.contentRegistryAddress,
+        CONTENT_REGISTRY_ABI,
+        provider
+      );
+
+      return await contract.isContentRegistered(cid);
+    } catch (error: any) {
+      console.error('[ByteCave] Failed to check content registration:', error);
+      return false;
+    }
   }
 
   /**

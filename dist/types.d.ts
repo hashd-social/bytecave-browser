@@ -3,6 +3,7 @@
  */
 export interface ByteCaveConfig {
     contractAddress?: string;
+    contentRegistryAddress?: string;
     rpcUrl?: string;
     appId: string;
     directNodeAddrs?: string[];

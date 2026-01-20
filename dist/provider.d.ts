@@ -35,7 +35,7 @@ interface ByteCaveContextValue {
     appId: string;
     connect: () => Promise<void>;
     disconnect: () => Promise<void>;
-    store: (data: Uint8Array, contentType?: string, signer?: any) => Promise<StoreResult>;
+    store: (data: Uint8Array, mimeType?: string, signer?: any) => Promise<StoreResult>;
     retrieve: (cid: string) => Promise<RetrieveResult>;
     getNodeHealth: (peerId: string) => Promise<NodeHealth | null>;
     error: string | null;

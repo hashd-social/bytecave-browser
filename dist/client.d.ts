@@ -3,6 +3,7 @@
  *
  * WebRTC P2P client for connecting browsers directly to ByteCave storage nodes.
  */
+import { ethers } from 'ethers';
 import type { ByteCaveConfig, PeerInfo, StoreResult, RetrieveResult, ConnectionState, SignalingMessage } from './types.js';
 export declare class ByteCaveClient {
     private node;
@@ -26,18 +27,31 @@ export declare class ByteCaveClient {
      */
     refreshPeerDirectory(): Promise<void>;
     /**
-     * Store ciphertext on a node via P2P
+     * Store data on the network
      * Uses getPeers() directly for fast peer access
      *
      * @param data - Data to store
-     * @param contentType - MIME type
+     * @param mimeType - MIME type (optional, defaults to 'application/octet-stream')
      * @param signer - Ethers signer for authorization (optional, but required for most nodes)
      */
-    store(data: Uint8Array | ArrayBuffer, contentType?: string, signer?: any): Promise<StoreResult>;
+    store(data: Uint8Array | ArrayBuffer, mimeType?: string, signer?: any): Promise<StoreResult>;
     /**
      * Retrieve ciphertext from a node via P2P only (no HTTP fallback)
      */
     retrieve(cid: string): Promise<RetrieveResult>;
+    /**
+     * Register content in ContentRegistry contract (on-chain)
+     * This must be called before storing content that requires on-chain verification
+     */
+    registerContent(cid: string, appId: string, signer: ethers.Signer): Promise<{
+        success: boolean;
+        txHash?: string;
+        error?: string;
+    }>;
+    /**
+     * Check if content is registered in ContentRegistry
+     */
+    isContentRegistered(cid: string): Promise<boolean>;
     /**
      * Get list of known peers (includes both announced peers and connected libp2p peers)
      */

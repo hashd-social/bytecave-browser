@@ -68,6 +68,7 @@ var import_bootstrap = require("@libp2p/bootstrap");
 var import_circuit_relay_v2 = require("@libp2p/circuit-relay-v2");
 var import_multiaddr = require("@multiformats/multiaddr");
 var import_uint8arrays = require("uint8arrays");
+var import_ethers2 = require("ethers");
 
 // src/discovery.ts
 var import_ethers = require("ethers");
@@ -5737,7 +5738,7 @@ var P2PProtocolClient = class {
   /**
    * Store a blob on a peer via P2P stream
    */
-  async storeToPeer(peerId, ciphertext, mimeType, contentType, authorization, shouldVerifyOnChain) {
+  async storeToPeer(peerId, ciphertext, mimeType, authorization, shouldVerifyOnChain) {
     if (!this.node) {
       return { success: false, error: "P2P node not initialized" };
     }
@@ -5760,7 +5761,6 @@ var P2PProtocolClient = class {
           mimeType,
           ciphertext: this.uint8ArrayToBase64(ciphertext),
           appId: authorization?.appId || "hashd",
-          contentType,
           shouldVerifyOnChain: shouldVerifyOnChain ?? false,
           sender: authorization?.sender,
           timestamp: authorization?.timestamp || Date.now(),
@@ -5985,6 +5985,14 @@ var P2PProtocolClient = class {
   }
 };
 var p2pProtocolClient = new P2PProtocolClient();
+
+// src/contracts/ContentRegistry.ts
+var CONTENT_REGISTRY_ABI = [
+  "function registerContent(string calldata cid, string calldata appId) external returns (bytes32)",
+  "function isContentRegistered(string calldata cid) external view returns (bool)",
+  "function getContentRecord(string calldata cid) external view returns (tuple(bytes32 id, string cid, string appId, address registrar, uint256 timestamp, bool exists))",
+  "event ContentRegistered(bytes32 indexed id, string cid, string appId, address indexed registrar, uint256 timestamp)"
+];
 
 // src/client.ts
 var ANNOUNCE_TOPIC = "bytecave-announce";
@@ -6216,14 +6224,14 @@ var ByteCaveClient = class {
     console.log("[ByteCave] Refresh complete. Connected peers:", this.node.getPeers().length, "Known peers:", this.knownPeers.size);
   }
   /**
-   * Store ciphertext on a node via P2P
+   * Store data on the network
    * Uses getPeers() directly for fast peer access
    * 
    * @param data - Data to store
-   * @param contentType - MIME type
+   * @param mimeType - MIME type (optional, defaults to 'application/octet-stream')
    * @param signer - Ethers signer for authorization (optional, but required for most nodes)
    */
-  async store(data, contentType, signer) {
+  async store(data, mimeType, signer) {
     if (!this.node) {
       return { success: false, error: "P2P node not initialized" };
     }
@@ -6258,9 +6266,9 @@ var ByteCaveClient = class {
     let authorization = void 0;
     if (signer) {
       try {
-        const { ethers: ethers2 } = await import("ethers");
+        const { ethers: ethers3 } = await import("ethers");
         const sender = await signer.getAddress();
-        const contentHash = ethers2.keccak256(dataArray);
+        const contentHash = ethers3.keccak256(dataArray);
         const timestamp = Date.now();
         const nonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         const message2 = `ByteCave Storage Request for
@@ -6275,8 +6283,7 @@ Nonce: ${nonce}`;
           timestamp,
           nonce,
           contentHash,
-          appId: this.config.appId,
-          contentType
+          appId: this.config.appId
         };
         console.log("[ByteCave] Created authorization for storage request");
       } catch (err) {
@@ -6290,8 +6297,7 @@ Nonce: ${nonce}`;
         const result = await p2pProtocolClient.storeToPeer(
           peerId,
           dataArray,
-          "application/octet-stream",
-          contentType,
+          mimeType || "application/octet-stream",
           authorization,
           false
           // shouldVerifyOnChain - false for browser test storage
@@ -6362,6 +6368,66 @@ Nonce: ${nonce}`;
       }
     }
     return { success: false, error: "Failed to retrieve blob from peers that have it" };
+  }
+  /**
+   * Register content in ContentRegistry contract (on-chain)
+   * This must be called before storing content that requires on-chain verification
+   */
+  async registerContent(cid, appId, signer) {
+    if (!this.config.contentRegistryAddress) {
+      return {
+        success: false,
+        error: "ContentRegistry address not configured"
+      };
+    }
+    if (!this.config.rpcUrl) {
+      return {
+        success: false,
+        error: "RPC URL not configured"
+      };
+    }
+    try {
+      console.log("[ByteCave] Registering content in ContentRegistry:", { cid, appId });
+      const contract = new import_ethers2.ethers.Contract(
+        this.config.contentRegistryAddress,
+        CONTENT_REGISTRY_ABI,
+        signer
+      );
+      const tx = await contract.registerContent(cid, appId);
+      console.log("[ByteCave] ContentRegistry transaction sent:", tx.hash);
+      const receipt = await tx.wait();
+      console.log("[ByteCave] ContentRegistry registration confirmed:", receipt.hash);
+      return {
+        success: true,
+        txHash: receipt.hash
+      };
+    } catch (error) {
+      console.error("[ByteCave] ContentRegistry registration failed:", error);
+      return {
+        success: false,
+        error: error.message || "Registration failed"
+      };
+    }
+  }
+  /**
+   * Check if content is registered in ContentRegistry
+   */
+  async isContentRegistered(cid) {
+    if (!this.config.contentRegistryAddress || !this.config.rpcUrl) {
+      return false;
+    }
+    try {
+      const provider = new import_ethers2.ethers.JsonRpcProvider(this.config.rpcUrl);
+      const contract = new import_ethers2.ethers.Contract(
+        this.config.contentRegistryAddress,
+        CONTENT_REGISTRY_ABI,
+        provider
+      );
+      return await contract.isContentRegistered(cid);
+    } catch (error) {
+      console.error("[ByteCave] Failed to check content registration:", error);
+      return false;
+    }
   }
   /**
    * Get list of known peers (includes both announced peers and connected libp2p peers)
@@ -6716,11 +6782,11 @@ function ByteCaveProvider({
       setError(err.message);
     }
   };
-  const store = async (data, contentType, signer) => {
+  const store = async (data, mimeType, signer) => {
     if (!globalClient) {
       return { success: false, error: "Client not initialized" };
     }
-    return globalClient.store(data, contentType, signer);
+    return globalClient.store(data, mimeType, signer);
   };
   const retrieve = async (cid) => {
     if (!globalClient) {

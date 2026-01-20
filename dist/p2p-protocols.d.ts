@@ -62,7 +62,6 @@ export interface StoreRequest {
     mimeType: string;
     ciphertext: string;
     appId?: string;
-    contentType?: string;
     shouldVerifyOnChain?: boolean;
     sender?: string;
     timestamp?: number;
@@ -83,7 +82,7 @@ export declare class P2PProtocolClient {
     /**
      * Store a blob on a peer via P2P stream
      */
-    storeToPeer(peerId: string, ciphertext: Uint8Array, mimeType: string, contentType?: string, authorization?: any, shouldVerifyOnChain?: boolean): Promise<StoreResponse>;
+    storeToPeer(peerId: string, ciphertext: Uint8Array, mimeType: string, authorization?: any, shouldVerifyOnChain?: boolean): Promise<StoreResponse>;
     /**
      * Retrieve a blob from a peer via P2P stream
      */
