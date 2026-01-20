@@ -233,6 +233,89 @@ export class ByteCaveClient {
   }
 
   /**
+   * Refresh peer directory from relay
+   * This rediscovers nodes that may have reconnected or restarted
+   */
+  async refreshPeerDirectory(): Promise<void> {
+    if (!this.node) {
+      console.warn('[ByteCave] Cannot refresh - node not initialized');
+      return;
+    }
+
+    const bootstrapPeers = [
+      ...(this.config.directNodeAddrs || []),
+      ...(this.config.relayPeers || [])
+    ];
+
+    console.log('[ByteCave] Refreshing peer directory from relays...');
+    
+    for (const relayAddr of bootstrapPeers) {
+      try {
+        // Extract relay peer ID from multiaddr
+        const parts = relayAddr.split('/p2p/');
+        if (parts.length < 2) continue;
+        const relayPeerId = parts[parts.length - 1];
+        
+        const directory = await p2pProtocolClient.getPeerDirectoryFromRelay(relayPeerId);
+        if (directory && directory.peers.length > 0) {
+          console.log('[ByteCave] Refresh: Got', directory.peers.length, 'peers from relay directory');
+          
+          // Check each peer and reconnect if disconnected
+          for (const peer of directory.peers) {
+            const isConnected = this.node.getPeers().some(p => p.toString() === peer.peerId);
+            const knownPeer = this.knownPeers.get(peer.peerId);
+            
+            if (!isConnected || !knownPeer) {
+              console.log('[ByteCave] Refresh: Reconnecting to peer:', peer.peerId.slice(0, 12) + '...');
+              
+              // Try to dial using circuit relay multiaddr
+              let connected = false;
+              for (const addr of peer.multiaddrs) {
+                try {
+                  const ma = multiaddr(addr);
+                  await this.node.dial(ma as any);
+                  connected = true;
+                  console.log('[ByteCave] Refresh: ✓ Reconnected via:', addr.slice(0, 60) + '...');
+                  break;
+                } catch (dialErr: any) {
+                  console.debug('[ByteCave] Refresh: Failed to dial via', addr.slice(0, 50) + '...', dialErr.message);
+                }
+              }
+              
+              if (connected) {
+                // Fetch health data
+                try {
+                  const health = await p2pProtocolClient.getHealthFromPeer(peer.peerId);
+                  if (health) {
+                    this.knownPeers.set(peer.peerId, {
+                      peerId: peer.peerId,
+                      publicKey: health.publicKey || '',
+                      contentTypes: health.contentTypes || 'all',
+                      connected: true,
+                      nodeId: health.nodeId
+                    });
+                    console.log('[ByteCave] Refresh: ✓ Updated peer info:', health.nodeId || peer.peerId.slice(0, 12));
+                  }
+                } catch (err: any) {
+                  console.warn('[ByteCave] Refresh: Failed to get health from peer:', peer.peerId.slice(0, 12), err.message);
+                }
+              }
+            } else {
+              console.debug('[ByteCave] Refresh: Peer already connected:', peer.peerId.slice(0, 12) + '...');
+            }
+          }
+          
+          break; // Successfully refreshed from one relay
+        }
+      } catch (err: any) {
+        console.warn('[ByteCave] Refresh: Failed to get directory from relay:', err.message);
+      }
+    }
+    
+    console.log('[ByteCave] Refresh complete. Connected peers:', this.node.getPeers().length, 'Known peers:', this.knownPeers.size);
+  }
+
+  /**
    * Store ciphertext on a node via P2P
    * Uses getPeers() directly for fast peer access
    * 
@@ -301,7 +384,11 @@ export class ByteCaveClient {
         const nonce = Math.random().toString(36).substring(2, 15) + 
                       Math.random().toString(36).substring(2, 15);
         
-        const message = `HASHD Vault Storage Request\nContent Hash: ${contentHash}\nTimestamp: ${timestamp}\nNonce: ${nonce}`;
+        const message = `ByteCave Storage Request for Content Hash
+Content Hash: ${contentHash}
+App ID: ${this.config.appId}
+Timestamp: ${timestamp}
+Nonce: ${nonce}`;
         const signature = await signer.signMessage(message);
         
         authorization = {
@@ -310,7 +397,7 @@ export class ByteCaveClient {
           timestamp,
           nonce,
           contentHash,
-          appId: 'hashd',
+          appId: this.config.appId,
           contentType
         };
         

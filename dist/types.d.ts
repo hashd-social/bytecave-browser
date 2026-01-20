@@ -4,6 +4,7 @@
 export interface ByteCaveConfig {
     contractAddress?: string;
     rpcUrl?: string;
+    appId: string;
     directNodeAddrs?: string[];
     relayPeers?: string[];
     maxPeers?: number;

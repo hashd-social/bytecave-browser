@@ -36,6 +36,7 @@ interface ByteCaveContextValue {
   connectionState: ConnectionState;
   peers: PeerInfo[];
   isConnected: boolean;
+  appId: string;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   store: (data: Uint8Array, contentType?: string, signer?: any) => Promise<StoreResult>;
@@ -50,6 +51,7 @@ interface ByteCaveProviderProps {
   children: ReactNode;
   contractAddress: string;
   rpcUrl: string;
+  appId: string;
   relayPeers?: string[];
   directNodeAddrs?: string[];
 }
@@ -59,7 +61,8 @@ let globalClient: ByteCaveClient | null = null;
 export function ByteCaveProvider({ 
   children, 
   contractAddress, 
-  rpcUrl, 
+  rpcUrl,
+  appId,
   relayPeers = [],
   directNodeAddrs = []
 }: ByteCaveProviderProps) {
@@ -107,11 +110,12 @@ export function ByteCaveProvider({
       globalClient = new ByteCaveClient({
         contractAddress,
         rpcUrl,
+        appId,
         directNodeAddrs,
         relayPeers,
         maxPeers: 10,
         connectionTimeout: 30000
-      } as ByteCaveConfig);
+      });
 
       const client = globalClient;
 
@@ -170,6 +174,24 @@ export function ByteCaveProvider({
     return () => clearInterval(reconnectInterval);
   }, [peers.length, connectionState, connect]);
 
+  // Periodic peer directory refresh to rediscover nodes
+  useEffect(() => {
+    const refreshInterval = setInterval(async () => {
+      if (connectionState === 'connected' && globalClient) {
+        console.log('[ByteCaveProvider] Refreshing peer directory...');
+        try {
+          await globalClient.refreshPeerDirectory();
+          const updatedPeers = await globalClient.getPeers();
+          setPeers(updatedPeers);
+        } catch (err) {
+          console.error('[ByteCaveProvider] Peer directory refresh failed:', err);
+        }
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [connectionState]);
+
   const disconnect = async () => {
     if (!globalClient) return;
     try {
@@ -205,6 +227,7 @@ export function ByteCaveProvider({
     connectionState,
     peers,
     isConnected: connectionState === 'connected',
+    appId,
     connect,
     disconnect,
     store,

@@ -21,6 +21,11 @@ export declare class ByteCaveClient {
      */
     stop(): Promise<void>;
     /**
+     * Refresh peer directory from relay
+     * This rediscovers nodes that may have reconnected or restarted
+     */
+    refreshPeerDirectory(): Promise<void>;
+    /**
      * Store ciphertext on a node via P2P
      * Uses getPeers() directly for fast peer access
      *

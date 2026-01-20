@@ -32,6 +32,7 @@ interface ByteCaveContextValue {
     connectionState: ConnectionState;
     peers: PeerInfo[];
     isConnected: boolean;
+    appId: string;
     connect: () => Promise<void>;
     disconnect: () => Promise<void>;
     store: (data: Uint8Array, contentType?: string, signer?: any) => Promise<StoreResult>;
@@ -43,9 +44,10 @@ interface ByteCaveProviderProps {
     children: ReactNode;
     contractAddress: string;
     rpcUrl: string;
+    appId: string;
     relayPeers?: string[];
     directNodeAddrs?: string[];
 }
-export declare function ByteCaveProvider({ children, contractAddress, rpcUrl, relayPeers, directNodeAddrs }: ByteCaveProviderProps): React.JSX.Element;
+export declare function ByteCaveProvider({ children, contractAddress, rpcUrl, appId, relayPeers, directNodeAddrs }: ByteCaveProviderProps): React.JSX.Element;
 export declare function useByteCaveContext(): ByteCaveContextValue;
 export {};
