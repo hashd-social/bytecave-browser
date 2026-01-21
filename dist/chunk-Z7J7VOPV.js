@@ -6676,11 +6676,21 @@ function ByteCaveProvider({
       client.on("peerConnect", handlePeerUpdate);
       client.on("peerDisconnect", handlePeerUpdate);
       const hasPeers = directNodeAddrs.length > 0 || relayPeers.length > 0;
+      console.log("[ByteCaveProvider] Auto-connect check:", {
+        hasPeers,
+        directNodeAddrs: directNodeAddrs.length,
+        relayPeers: relayPeers.length,
+        connectCalled: connectCalledRef.current
+      });
       if (hasPeers && !connectCalledRef.current) {
         connectCalledRef.current = true;
+        console.log("[ByteCaveProvider] Auto-connecting in 100ms...");
         setTimeout(() => {
+          console.log("[ByteCaveProvider] Calling connect()...");
           connect();
         }, 100);
+      } else if (!hasPeers) {
+        console.warn("[ByteCaveProvider] No relay peers or direct node addresses configured - cannot auto-connect");
       }
     };
     initializeClient();
