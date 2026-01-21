@@ -1,5 +1,5 @@
 {
-  "name": "@hashd-social/bytecave-browser",
+  "name": "@gethashd/bytecave-browser",
   "version": "1.0.0",
   "description": "ByteCave browser client for WebRTC P2P connections to storage nodes",
   "main": "dist/index.cjs",
