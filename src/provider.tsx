@@ -50,7 +50,7 @@ const ByteCaveContext = createContext<ByteCaveContextValue | null>(null);
 
 interface ByteCaveProviderProps {
   children: ReactNode;
-  contractAddress: string;
+  vaultNodeRegistryAddress: string;
   contentRegistryAddress?: string;
   rpcUrl: string;
   appId: string;
@@ -62,7 +62,7 @@ let globalClient: ByteCaveClient | null = null;
 
 export function ByteCaveProvider({ 
   children, 
-  contractAddress,
+  vaultNodeRegistryAddress,
   contentRegistryAddress,
   rpcUrl,
   appId,
@@ -98,7 +98,7 @@ export function ByteCaveProvider({
   }, []);
 
   useEffect(() => {
-    if (!contractAddress) {
+    if (!vaultNodeRegistryAddress) {
       return;
     }
 
@@ -111,7 +111,7 @@ export function ByteCaveProvider({
       
       console.log('[ByteCaveProvider] Creating new ByteCaveClient');
       globalClient = new ByteCaveClient({
-        contractAddress,
+        vaultNodeRegistryAddress,
         contentRegistryAddress,
         rpcUrl,
         appId,

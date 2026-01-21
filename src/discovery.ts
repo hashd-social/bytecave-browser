@@ -18,9 +18,9 @@ export class ContractDiscovery {
   private provider: ethers.Provider;
   private contract: ethers.Contract;
 
-  constructor(contractAddress: string, rpcUrl: string) {
+  constructor(vaultNodeRegistryAddress: string, rpcUrl: string) {
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
-    this.contract = new ethers.Contract(contractAddress, VAULT_REGISTRY_ABI, this.provider);
+    this.contract = new ethers.Contract(vaultNodeRegistryAddress, VAULT_REGISTRY_ABI, this.provider);
   }
 
   /**

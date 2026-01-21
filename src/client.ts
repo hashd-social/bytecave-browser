@@ -47,8 +47,8 @@ export class ByteCaveClient {
       ...config
     };
     // Only initialize contract discovery if contract address is provided
-    if (config.contractAddress && config.rpcUrl) {
-      this.discovery = new ContractDiscovery(config.contractAddress, config.rpcUrl);
+    if (config.vaultNodeRegistryAddress && config.rpcUrl) {
+      this.discovery = new ContractDiscovery(config.vaultNodeRegistryAddress, config.rpcUrl);
     }
   }
 

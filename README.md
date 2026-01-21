@@ -4,35 +4,38 @@ Browser-compatible P2P client library for connecting to the ByteCave decentraliz
 
 ## Features
 
-- **Fast Node Discovery** - Discover storage nodes in 1-2 seconds via relay peer directory
-- **Pure P2P** - Connect via relay nodes, no HTTP endpoints required
-- **WebRTC Support** - Direct browser-to-node P2P connections
-- **Circuit Relay** - Relay-based connections for NAT traversal
-- **FloodSub** - Peer announcements and discovery
-- **Contract Integration** - Optional on-chain node registry support
+- **Fast Node Discovery** - Discover storage nodes in 1-2 seconds via relay peer directory protocol
+- **WebRTC P2P Connections** - Direct browser-to-node connections using WebRTC transport (via libp2p)
+- **Circuit Relay Fallback** - Relay-based P2P connections for NAT traversal when direct WebRTC fails
+- **Pure P2P Architecture** - All communication via libp2p protocols (no HTTP endpoints required)
+- **FloodSub Announcements** - Peer discovery and announcements via pubsub
+- **Contract Integration** - Optional on-chain node registry verification
+- **HashD Protocol** - Custom `hashd://` URL scheme with caching and helpers
 - **React Hooks & Components** - Ready-to-use React integration
 - **TypeScript** - Full type safety
 
 ## Installation
 
 ```bash
-npm install @hashd/bytecave-browser
+npm install @gethashd/bytecave-browser
 # or
-yarn add @hashd/bytecave-browser
+yarn add @gethashd/bytecave-browser
 ```
 
 ## Quick Start
 
 ```typescript
-import { ByteCaveClient } from '@hashd/bytecave-browser';
+import { ByteCaveClient } from '@gethashd/bytecave-browser';
 
 // Initialize client
 const client = new ByteCaveClient({
-  contractAddress: '0x...', // Vault registry contract
-  rpcUrl: 'https://...', // Ethereum RPC URL
+  appId: 'my-app', // Required: Application identifier
   relayPeers: [
     '/dns4/relay.example.com/tcp/4002/ws/p2p/12D3KooW...'
   ],
+  vaultNodeRegistryAddress: '0x...', // VaultNodeRegistry contract
+  contentRegistryAddress: '0x...', // ContentRegistry contract
+  rpcUrl: 'https://...', // Ethereum RPC URL
   maxPeers: 10,
   connectionTimeout: 30000
 });
@@ -61,11 +64,14 @@ await client.stop();
 
 ```typescript
 interface ByteCaveConfig {
-  contractAddress: string;      // Vault registry contract address
-  rpcUrl: string;                // Ethereum RPC endpoint
-  relayPeers?: string[];         // Relay node multiaddrs
-  maxPeers?: number;             // Maximum peer connections (default: 10)
-  connectionTimeout?: number;    // Connection timeout in ms (default: 30000)
+  appId: string;                       // Required: Application identifier for storage authorization
+  relayPeers?: string[];               // Relay node multiaddrs for P2P connections
+  directNodeAddrs?: string[];          // Direct node multiaddrs (WebRTC without relay)
+  vaultNodeRegistryAddress?: string;   // Optional: VaultNodeRegistry contract for node verification
+  contentRegistryAddress?: string;     // Optional: ContentRegistry contract
+  rpcUrl?: string;                     // Optional: Ethereum RPC (required if using contracts)
+  maxPeers?: number;                   // Maximum peer connections (default: 10)
+  connectionTimeout?: number;          // Connection timeout in ms (default: 30000)
 }
 ```
 
@@ -196,13 +202,14 @@ client.off('peerConnect', callback);
 
 ## HashD Protocol (`hashd://`)
 
-Load content from ByteCave network using `hashd://` URLs - works just like regular HTTP URLs!
+Custom URL scheme for loading content from ByteCave network. **Note:** `hashd://` URLs are not automatically resolved by browsers - you must use the provided utilities to parse and fetch content.
 
 ### URL Format
 
 ```
 hashd://{cid}
 hashd://{cid}?type=image/png
+hashd://{cid}?type=image/png&decrypt=true
 ```
 
 ### Core Functions
@@ -211,20 +218,55 @@ hashd://{cid}?type=image/png
 import { 
   parseHashdUrl, 
   createHashdUrl, 
-  fetchHashdContent 
-} from '@hashd/bytecave-browser';
+  fetchHashdContent,
+  prefetchHashdContent,
+  clearHashdCache,
+  getHashdCacheStats,
+  revokeHashdUrl
+} from '@gethashd/bytecave-browser';
 
-// Parse hashd:// URL
-const parsed = parseHashdUrl('hashd://abc123...');
-// { protocol: 'hashd:', cid: 'abc123...', mimeType: undefined }
+// Parse hashd:// URL into components
+const parsed = parseHashdUrl('hashd://bafybei...?type=image/png');
+// { protocol: 'hashd:', cid: 'bafybei...', mimeType: 'image/png', raw: '...' }
 
-// Create hashd:// URL
-const url = createHashdUrl('abc123...', { mimeType: 'image/png' });
-// 'hashd://abc123...?type=image/png'
+// Create hashd:// URL from CID
+const url = createHashdUrl('bafybei...', { mimeType: 'image/png' });
+// 'hashd://bafybei...?type=image/png'
 
-// Fetch content (returns blob URL)
+// Fetch content and get blob URL (with automatic caching)
 const result = await fetchHashdContent(url, client);
-// { blobUrl: 'blob:...', mimeType: 'image/png', cached: false }
+// { data: Uint8Array, blobUrl: 'blob:...', mimeType: 'image/png', cached: false }
+
+// Prefetch and cache content
+await prefetchHashdContent('hashd://bafybei...', client);
+
+// Cache management
+const stats = getHashdCacheStats(); // { size: 5 }
+clearHashdCache(); // Clear all cached blob URLs
+revokeHashdUrl('bafybei...'); // Revoke specific blob URL
+```
+
+### How It Works
+
+1. **Parse** - `parseHashdUrl()` extracts CID and metadata from URL
+2. **Fetch** - `fetchHashdContent()` retrieves data via P2P from ByteCave network
+3. **Cache** - Blob URLs are automatically cached (1 hour TTL)
+4. **Reuse** - Subsequent requests for same CID return cached blob URL
+
+### React Hooks
+
+For React apps, use hooks instead of manual fetching:
+
+```typescript
+import { useHashdUrl } from '@gethashd/bytecave-browser';
+
+function ImageDisplay({ cid }) {
+  const { blobUrl, loading, error } = useHashdUrl(`hashd://${cid}`);
+  
+  if (loading) return <Spinner />;
+  if (error) return <Error message={error} />;
+  return <img src={blobUrl} alt="Image" />;
+}
 ```
 
 ## React Integration
@@ -234,12 +276,12 @@ const result = await fetchHashdContent(url, client);
 The easiest way to use ByteCave in React is with the `ByteCaveProvider`:
 
 ```typescript
-import { ByteCaveProvider } from '@hashd/bytecave-browser';
+import { ByteCaveProvider } from '@gethashd/bytecave-browser';
 
 function App() {
   return (
     <ByteCaveProvider
-      contractAddress={process.env.REACT_APP_VAULT_REGISTRY}
+      vaultNodeRegistryAddress={process.env.REACT_APP_VAULT_REGISTRY}
       rpcUrl={process.env.REACT_APP_RPC_URL}
       relayPeers={process.env.REACT_APP_RELAY_PEERS?.split(',')}
     >
@@ -252,7 +294,7 @@ function App() {
 Then use hooks anywhere in your app:
 
 ```typescript
-import { useByteCaveContext, useHashdUrl } from '@hashd/bytecave-browser';
+import { useByteCaveContext, useHashdUrl } from '@gethashd/bytecave-browser';
 
 function ImageGallery() {
   const { store, retrieve, isConnected } = useByteCaveContext();
@@ -380,7 +422,7 @@ function Gallery({ cids }) {
 Drop-in replacements for standard HTML elements:
 
 ```typescript
-import { HashdImage, HashdVideo, HashdAudio } from '@hashd/bytecave-browser/react';
+import { HashdImage, HashdVideo, HashdAudio } from '@gethashd/bytecave-browser/react';
 
 // Image
 <HashdImage 
@@ -422,13 +464,13 @@ import { HashdImage, HashdVideo, HashdAudio } from '@hashd/bytecave-browser/reac
 ### Complete Example with Provider
 
 ```typescript
-import { ByteCaveProvider, useByteCaveContext, useHashdUrl } from '@hashd/bytecave-browser';
+import { ByteCaveProvider, useByteCaveContext, useHashdUrl } from '@gethashd/bytecave-browser';
 
 // Wrap your app with the provider
 function App() {
   return (
     <ByteCaveProvider
-      contractAddress={process.env.REACT_APP_VAULT_REGISTRY}
+      vaultNodeRegistryAddress={process.env.REACT_APP_VAULT_REGISTRY}
       rpcUrl={process.env.REACT_APP_RPC_URL}
       relayPeers={process.env.REACT_APP_RELAY_PEERS?.split(',')}
     >
@@ -473,8 +515,8 @@ function Gallery() {
 If you prefer manual client management:
 
 ```typescript
-import { ByteCaveClient } from '@hashd/bytecave-browser';
-import { HashdImage } from '@hashd/bytecave-browser';
+import { ByteCaveClient } from '@gethashd/bytecave-browser';
+import { HashdImage } from '@gethashd/bytecave-browser';
 import { useState, useEffect } from 'react';
 
 function App() {
@@ -483,7 +525,7 @@ function App() {
   useEffect(() => {
     const bytecave = new ByteCaveClient({
       relayPeers: process.env.REACT_APP_RELAY_PEERS?.split(','),
-      contractAddress: process.env.REACT_APP_VAULT_REGISTRY,
+      vaultNodeRegistryAddress: process.env.REACT_APP_VAULT_REGISTRY,
       rpcUrl: process.env.REACT_APP_RPC_URL
     });
     
@@ -635,8 +677,11 @@ import type {
   PeerInfo,
   StoreResult,
   RetrieveResult,
-  ConnectionState
-} from '@hashd/bytecave-browser';
+  ConnectionState,
+  HashdUrl,
+  FetchOptions,
+  FetchResult
+} from '@gethashd/bytecave-browser';
 ```
 
 ## License
