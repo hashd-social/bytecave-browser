@@ -9,7 +9,7 @@
 export const TEST_EXPORT = "ByteCave Browser Package v1.0.0";
 
 export { ByteCaveClient } from './client.js';
-export { ContractDiscovery } from './discovery.js';
+export { ContractDiscovery, RelayDiscovery } from './discovery.js';
 export { p2pProtocolClient } from './p2p-protocols.js';
 
 // Provider exports

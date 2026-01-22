@@ -1,12 +1,44 @@
 /**
- * Contract-based peer discovery
+ * Peer discovery for ByteCave browser clients
  * 
- * Reads registered nodes from the VaultNodeRegistry smart contract
- * to bootstrap P2P connections without any central server.
+ * Supports two discovery methods:
+ * 1. RelayDiscovery - Fast: Query relay's /peers endpoint for instant peer list
+ * 2. ContractDiscovery - Slow: Read from VaultNodeRegistry smart contract
  */
 
 import { ethers } from 'ethers';
 import type { NodeRegistryEntry } from './types.js';
+
+/**
+ * Relay-based peer discovery (FAST)
+ * Queries the relay's HTTP endpoint for currently connected storage nodes
+ */
+export class RelayDiscovery {
+  private relayHttpUrl: string;
+
+  constructor(relayHttpUrl: string) {
+    this.relayHttpUrl = relayHttpUrl;
+  }
+
+  /**
+   * Get currently connected storage nodes from relay
+   * Returns peer IDs and relay circuit multiaddrs
+   */
+  async getConnectedPeers(): Promise<Array<{ peerId: string; multiaddrs: string[] }>> {
+    try {
+      const response = await fetch(`${this.relayHttpUrl}/peers`);
+      if (!response.ok) {
+        throw new Error(`Relay returned ${response.status}`);
+      }
+      const peers = await response.json();
+      console.log('[RelayDiscovery] Found connected peers:', peers.length);
+      return peers;
+    } catch (error) {
+      console.warn('[RelayDiscovery] Failed to fetch peers from relay:', error);
+      return [];
+    }
+  }
+}
 
 const VAULT_REGISTRY_ABI = [
   'function getActiveNodes() external view returns (bytes32[] memory)',

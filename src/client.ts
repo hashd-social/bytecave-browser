@@ -17,7 +17,7 @@ import { multiaddr } from '@multiformats/multiaddr';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { fromString, toString } from 'uint8arrays';
 import { ethers } from 'ethers';
-import { ContractDiscovery } from './discovery.js';
+import { ContractDiscovery, RelayDiscovery } from './discovery.js';
 import { p2pProtocolClient } from './p2p-protocols.js';
 import { CONTENT_REGISTRY_ABI } from './contracts/ContentRegistry.js';
 import type { 
@@ -34,7 +34,8 @@ const SIGNALING_TOPIC_PREFIX = 'bytecave-signaling-';
 
 export class ByteCaveClient {
   private node: Libp2p | null = null;
-  private discovery?: ContractDiscovery; // Optional - only if contract address provided
+  private contractDiscovery?: ContractDiscovery; // Optional - only if contract address provided
+  private relayDiscovery?: RelayDiscovery; // Optional - for fast peer discovery via relay
   private config: ByteCaveConfig;
   private knownPeers: Map<string, PeerInfo> = new Map();
   private connectionState: ConnectionState = 'disconnected';
@@ -46,9 +47,18 @@ export class ByteCaveClient {
       connectionTimeout: 30000,
       ...config
     };
-    // Only initialize contract discovery if contract address is provided
+    
+    // Initialize relay discovery using HTTP URLs from relayPeers
+    if (config.relayPeers && config.relayPeers.length > 0) {
+      // Use first relay HTTP URL for peer discovery
+      const relayHttpUrl = config.relayPeers[0];
+      this.relayDiscovery = new RelayDiscovery(relayHttpUrl);
+      console.log('[ByteCave] Using relay HTTP URL for peer discovery:', relayHttpUrl);
+    }
+    
+    // Initialize contract discovery if contract address is provided
     if (config.vaultNodeRegistryAddress && config.rpcUrl) {
-      this.discovery = new ContractDiscovery(config.vaultNodeRegistryAddress, config.rpcUrl);
+      this.contractDiscovery = new ContractDiscovery(config.vaultNodeRegistryAddress, config.rpcUrl);
     }
   }
 
@@ -73,14 +83,8 @@ export class ByteCaveClient {
         bootstrapPeers.push(...this.config.directNodeAddrs);
       }
 
-      // Use relay peers for fallback (circuit relay connections)
-      if (this.config.relayPeers && this.config.relayPeers.length > 0) {
-        console.log('[ByteCave] Using relay peers as fallback:', this.config.relayPeers);
-        bootstrapPeers.push(...this.config.relayPeers);
-      }
-
       if (bootstrapPeers.length === 0) {
-        console.warn('[ByteCave] No peers configured - will rely on contract discovery only');
+        console.warn('[ByteCave] No direct node addresses configured - will rely on relay peer discovery');
       }
 
       console.log('[ByteCave] Bootstrap peers:', bootstrapPeers);
@@ -144,8 +148,58 @@ export class ByteCaveClient {
       // Initialize P2P protocol client with the libp2p node
       p2pProtocolClient.setNode(this.node);
 
-      // Fast discovery: Query relay for peer directory
-      console.log('[ByteCave] Querying relay for peer directory...');
+      // FASTEST discovery: Query relay HTTP endpoint for connected peers
+      if (this.relayDiscovery) {
+        console.log('[ByteCave] Querying relay HTTP endpoint for instant peer list...');
+        try {
+          const relayPeers = await this.relayDiscovery.getConnectedPeers();
+          if (relayPeers.length > 0) {
+            console.log('[ByteCave] Got', relayPeers.length, 'peers from relay HTTP endpoint');
+            
+            // Dial each peer using their relay circuit multiaddrs
+            for (const peer of relayPeers) {
+              try {
+                console.log('[ByteCave] Dialing peer:', peer.peerId.slice(0, 12) + '...');
+                
+                let connected = false;
+                for (const addr of peer.multiaddrs) {
+                  try {
+                    const ma = multiaddr(addr);
+                    await this.node.dial(ma as any);
+                    connected = true;
+                    console.log('[ByteCave] ✓ Connected via relay circuit');
+                    break;
+                  } catch (dialErr: any) {
+                    console.warn('[ByteCave] Failed to dial:', dialErr.message);
+                  }
+                }
+                
+                if (connected) {
+                  // Fetch health data
+                  const health = await p2pProtocolClient.getHealthFromPeer(peer.peerId);
+                  if (health) {
+                    this.knownPeers.set(peer.peerId, {
+                      peerId: peer.peerId,
+                      publicKey: health.publicKey || '',
+                      contentTypes: health.contentTypes || 'all',
+                      connected: true,
+                      nodeId: health.nodeId
+                    });
+                    console.log('[ByteCave] ✓ Discovered peer via HTTP relay:', health.nodeId || peer.peerId.slice(0, 12));
+                  }
+                }
+              } catch (err: any) {
+                console.warn('[ByteCave] Failed to process peer from HTTP relay:', err.message);
+              }
+            }
+          }
+        } catch (err: any) {
+          console.warn('[ByteCave] HTTP relay discovery failed, falling back to P2P directory:', err.message);
+        }
+      }
+
+      // Fallback: Query relay for peer directory via P2P protocol
+      console.log('[ByteCave] Querying relay for peer directory via P2P...');
       for (const relayAddr of bootstrapPeers) {
         try {
           // Extract relay peer ID from multiaddr
@@ -244,33 +298,24 @@ export class ByteCaveClient {
       return;
     }
 
-    const bootstrapPeers = [
-      ...(this.config.directNodeAddrs || []),
-      ...(this.config.relayPeers || [])
-    ];
-
-    console.log('[ByteCave] Refreshing peer directory from relays...');
+    console.log('[ByteCave] Refreshing peer directory from relay HTTP endpoint...');
     
-    for (const relayAddr of bootstrapPeers) {
+    // Use HTTP relay discovery for instant refresh
+    if (this.relayDiscovery) {
       try {
-        // Extract relay peer ID from multiaddr
-        const parts = relayAddr.split('/p2p/');
-        if (parts.length < 2) continue;
-        const relayPeerId = parts[parts.length - 1];
-        
-        const directory = await p2pProtocolClient.getPeerDirectoryFromRelay(relayPeerId);
-        if (directory && directory.peers.length > 0) {
-          console.log('[ByteCave] Refresh: Got', directory.peers.length, 'peers from relay directory');
+        const relayPeers = await this.relayDiscovery.getConnectedPeers();
+        if (relayPeers.length > 0) {
+          console.log('[ByteCave] Refresh: Got', relayPeers.length, 'peers from relay HTTP endpoint');
           
           // Check each peer and reconnect if disconnected
-          for (const peer of directory.peers) {
+          for (const peer of relayPeers) {
             const isConnected = this.node.getPeers().some(p => p.toString() === peer.peerId);
             const knownPeer = this.knownPeers.get(peer.peerId);
             
             if (!isConnected || !knownPeer) {
               console.log('[ByteCave] Refresh: Reconnecting to peer:', peer.peerId.slice(0, 12) + '...');
               
-              // Try to dial using circuit relay multiaddr
+              // Try to dial using relay circuit multiaddr
               let connected = false;
               for (const addr of peer.multiaddrs) {
                 try {
@@ -306,8 +351,6 @@ export class ByteCaveClient {
               console.debug('[ByteCave] Refresh: Peer already connected:', peer.peerId.slice(0, 12) + '...');
             }
           }
-          
-          break; // Successfully refreshed from one relay
         }
       } catch (err: any) {
         console.warn('[ByteCave] Refresh: Failed to get directory from relay:', err.message);
@@ -330,15 +373,9 @@ export class ByteCaveClient {
       return { success: false, error: 'P2P node not initialized' };
     }
 
-    // Get all connected peers (excluding relay)
+    // Get all connected peers
     const allPeers = this.node.getPeers();
-    const relayPeerIds = new Set(
-      this.config.relayPeers?.map(addr => addr.split('/p2p/').pop()) || []
-    );
-    
-    const connectedPeerIds = allPeers
-      .map(p => p.toString())
-      .filter(peerId => !relayPeerIds.has(peerId));
+    const connectedPeerIds = allPeers.map(p => p.toString());
     
     console.log('[ByteCave] Store - connected storage peers:', connectedPeerIds.length);
     console.log('[ByteCave] Store - knownPeers with registration info:', this.knownPeers.size);
@@ -807,14 +844,14 @@ Nonce: ${nonce}`;
    * Check if a nodeId is registered in the on-chain registry
    */
   private async checkNodeRegistration(nodeId: string): Promise<boolean> {
-    if (!this.discovery) {
+    if (!this.contractDiscovery) {
       // No contract configured - skip registration check
       return true;
     }
     
     try {
-      const registeredNodes = await this.discovery.getActiveNodes();
-      return registeredNodes.some(node => node.nodeId === nodeId);
+      const registeredNodes = await this.contractDiscovery.getActiveNodes();
+      return registeredNodes.some((node: any) => node.nodeId === nodeId);
     } catch (error) {
       console.warn('[ByteCave] Failed to check node registration:', error);
       return false;

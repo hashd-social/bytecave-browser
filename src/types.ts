@@ -8,7 +8,7 @@ export interface ByteCaveConfig {
   rpcUrl?: string; // Optional - required if vaultNodeRegistryAddress is provided
   appId: string; // Application identifier for storage authorization
   directNodeAddrs?: string[]; // Direct node multiaddrs for WebRTC connections (no relay)
-  relayPeers?: string[]; // Relay node multiaddrs for circuit relay fallback
+  relayPeers?: string[]; // Relay HTTP URLs (e.g., http://localhost:9090) for peer discovery
   maxPeers?: number;
   connectionTimeout?: number;
 }
