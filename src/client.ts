@@ -48,12 +48,10 @@ export class ByteCaveClient {
       ...config
     };
     
-    // Initialize relay discovery using HTTP URLs from relayPeers
-    if (config.relayPeers && config.relayPeers.length > 0) {
-      // Use first relay HTTP URL for peer discovery
-      const relayHttpUrl = config.relayPeers[0];
-      this.relayDiscovery = new RelayDiscovery(relayHttpUrl);
-      console.log('[ByteCave] Using relay HTTP URL for peer discovery:', relayHttpUrl);
+    // Initialize relay discovery using HTTP URL if provided
+    if (config.relayHttpUrl) {
+      this.relayDiscovery = new RelayDiscovery(config.relayHttpUrl);
+      console.log('[ByteCave] Using relay HTTP URL for peer discovery:', config.relayHttpUrl);
     }
     
     // Initialize contract discovery if contract address is provided
@@ -83,8 +81,14 @@ export class ByteCaveClient {
         bootstrapPeers.push(...this.config.directNodeAddrs);
       }
 
+      // Add relay peers for circuit relay connections
+      if (this.config.relayPeers && this.config.relayPeers.length > 0) {
+        console.log('[ByteCave] Using relay peers for circuit relay:', this.config.relayPeers);
+        bootstrapPeers.push(...this.config.relayPeers);
+      }
+
       if (bootstrapPeers.length === 0) {
-        console.warn('[ByteCave] No direct node addresses configured - will rely on relay peer discovery');
+        console.warn('[ByteCave] No peers configured - will rely on contract discovery only');
       }
 
       console.log('[ByteCave] Bootstrap peers:', bootstrapPeers);
