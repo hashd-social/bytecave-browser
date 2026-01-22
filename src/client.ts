@@ -810,29 +810,25 @@ Nonce: ${nonce}`;
     });
   }
 
-  private async handlePeerAnnouncement(announcement: {
-    peerId: string;
-    timestamp?: number;
-    relayAddrs?: string[];
-    contentTypes?: string[] | 'all';
-  }): Promise<void> {
+  private async handlePeerAnnouncement(announcement: any): Promise<void> {
     console.log('[ByteCave] Received announcement from peer:', announcement.peerId.slice(0, 12), announcement);
     
     const existing = this.knownPeers.get(announcement.peerId);
     
-    const peerInfo: PeerInfo = {
+    // Store ALL announcement data, not just PeerInfo fields
+    const peerInfo: any = {
       peerId: announcement.peerId,
-      publicKey: existing?.publicKey || '',
+      publicKey: announcement.publicKey || existing?.publicKey || '',
       contentTypes: announcement.contentTypes || 'all',
-      connected: this.node?.getPeers().some(p => p.toString() === announcement.peerId) || false
+      connected: this.node?.getPeers().some(p => p.toString() === announcement.peerId) || false,
+      nodeId: announcement.nodeId || existing?.nodeId,
+      // Store all health data from announcement
+      availableStorage: announcement.availableStorage,
+      blobCount: announcement.blobCount,
+      timestamp: announcement.timestamp,
+      multiaddrs: announcement.multiaddrs,
+      relayAddrs: announcement.relayAddrs || (existing as any)?.relayAddrs
     };
-
-    // Preserve relay addresses from existing peer info if new announcement doesn't have them
-    if (announcement.relayAddrs && announcement.relayAddrs.length > 0) {
-      (peerInfo as any).relayAddrs = announcement.relayAddrs;
-    } else if (existing && (existing as any).relayAddrs) {
-      (peerInfo as any).relayAddrs = (existing as any).relayAddrs;
-    }
 
     this.knownPeers.set(announcement.peerId, peerInfo);
 
