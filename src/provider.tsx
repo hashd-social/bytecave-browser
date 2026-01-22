@@ -141,8 +141,9 @@ export function ByteCaveProvider({
       };
 
       client.on('connectionStateChange', handleStateChange);
-      client.on('peerConnect', handlePeerUpdate);
-      client.on('peerDisconnect', handlePeerUpdate);
+      // Only listen to peerAnnounce - floodsub announcements are the single source of truth
+      // They include all health data (nodeId, storage, blobs, etc.)
+      client.on('peerAnnounce', handlePeerUpdate);
 
       const hasPeers = directNodeAddrs.length > 0 || relayPeers.length > 0;
       
