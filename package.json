@@ -1,6 +1,6 @@
 {
   "name": "@gethashd/bytecave-browser",
-  "version": "1.0.0",
+  "version": "1.0.30",
   "description": "ByteCave browser client for WebRTC P2P connections to storage nodes",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -40,6 +40,7 @@
     "@chainsafe/libp2p-yamux": "^8.0.1",
     "@libp2p/bootstrap": "^12.0.10",
     "@libp2p/circuit-relay-v2": "^4.1.2",
+    "@libp2p/dcutr": "^3.0.10",
     "@libp2p/floodsub": "^11.0.10",
     "@libp2p/identify": "^4.0.9",
     "@libp2p/webrtc": "^6.0.10",

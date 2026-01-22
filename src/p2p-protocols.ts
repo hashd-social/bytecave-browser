@@ -124,17 +124,100 @@ export class P2PProtocolClient {
       
       // Wrap the entire operation in a timeout
       const storePromise = (async () => {
-        console.log('[ByteCave P2P] Step 1: Dialing store protocol...');
-        // Use the store protocol for browser-to-node storage (with authorization)
-        const stream = await this.node!.dialProtocol(peerIdObj, '/bytecave/store/1.0.0');
-        console.log('[ByteCave P2P] Step 2: Stream established');
+        console.log('[ByteCave P2P] Step 1: Checking existing connections to peer', peerId.slice(0, 12));
+        console.log('[ByteCave P2P] Full peer ID:', peerId);
+        const existingConns = this.node!.getConnections(peerIdObj);
+        console.log('[ByteCave P2P] Existing connections:', existingConns.length);
+        existingConns.forEach((conn, idx) => {
+          console.log(`[ByteCave P2P] Connection ${idx}:`, {
+            remoteAddr: conn.remoteAddr.toString(),
+            remotePeer: conn.remotePeer.toString(),
+            status: conn.status,
+            direction: conn.direction,
+            streams: conn.streams.length,
+            timeline: conn.timeline
+          });
+        });
+        
+        // Check what protocols the peer supports
+        const peerStore = this.node!.peerStore;
+        try {
+          const peer = await peerStore.get(peerIdObj);
+          console.log('[ByteCave P2P] Peer protocols from peerStore:', peer.protocols);
+        } catch (e) {
+          console.warn('[ByteCave P2P] Could not get peer info from peerStore:', e);
+        }
+        
+        // Step 2: Wait for connection upgrade from limited relay circuit to full WebRTC
+        console.log('[ByteCave P2P] Step 2: Checking if connection upgrade needed...');
+        
+        if (existingConns.length === 0) {
+          throw new Error('No connection to peer - cannot open protocol stream');
+        }
+        
+        let connection = existingConns[0];
+        const isRelayCircuit = connection.remoteAddr.toString().includes('/p2p-circuit');
+        console.log('[ByteCave P2P] Connection type:', isRelayCircuit ? 'relay circuit (limited)' : 'direct');
+        console.log('[ByteCave P2P] Connection address:', connection.remoteAddr.toString());
+        
+        // If it's a relay circuit, wait for DCUtR to upgrade to direct WebRTC
+        if (isRelayCircuit) {
+          console.log('[ByteCave P2P] Waiting for DCUtR to upgrade relay circuit to direct WebRTC...');
+          const upgradeStart = Date.now();
+          const hasDirectConnection = await this.waitForDirectConnection(peerId, 5000);
+          const upgradeDuration = Date.now() - upgradeStart;
+          
+          if (!hasDirectConnection) {
+            console.error('[ByteCave P2P] DCUtR upgrade failed after', upgradeDuration, 'ms');
+            throw new Error('Cannot use storage protocol - relay circuit upgrade to WebRTC failed');
+          }
+          
+          console.log('[ByteCave P2P] DCUtR upgrade successful after', upgradeDuration, 'ms');
+          
+          // Get the new direct connection
+          const directConns = this.node!.getConnections(peerIdObj);
+          const directConn = directConns.find(conn => !conn.remoteAddr.toString().includes('/p2p-circuit'));
+          if (!directConn) {
+            throw new Error('DCUtR reported success but no direct connection found');
+          }
+          connection = directConn;
+          console.log('[ByteCave P2P] Using direct connection:', connection.remoteAddr.toString());
+        }
+        
+        // Step 3: Open protocol stream on the connection
+        console.log('[ByteCave P2P] Step 3: Opening protocol stream...');
+        const streamStart = Date.now();
+        let stream;
+        try {
+          console.log('[ByteCave P2P] Calling connection.newStream with protocol /bytecave/store/1.0.0...');
+          stream = await connection.newStream('/bytecave/store/1.0.0');
+          const streamDuration = Date.now() - streamStart;
+          console.log('[ByteCave P2P] Step 4: Protocol stream opened in', streamDuration, 'ms');
+          console.log('[ByteCave P2P] Stream details:', {
+            protocol: stream.protocol,
+            direction: stream.direction,
+            id: stream.id,
+            timeline: stream.timeline
+          });
+        } catch (streamError: any) {
+          const streamDuration = Date.now() - streamStart;
+          console.error('[ByteCave P2P] Failed to open protocol stream after', streamDuration, 'ms:', {
+            error: streamError.message,
+            code: streamError.code,
+            name: streamError.name,
+            connectionStatus: connection.status,
+            connectionStreams: connection.streams.length,
+            stack: streamError.stack?.split('\n').slice(0, 3)
+          });
+          throw streamError;
+        }
 
         // Generate CID using SHA-256 (matches bytecave-core format: 64-char hex)
         const dataCopy = new Uint8Array(ciphertext);
         const hashBuffer = await crypto.subtle.digest('SHA-256', dataCopy);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const cid = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        console.log('[ByteCave P2P] Step 3: CID generated:', cid.slice(0, 16) + '...');
+        console.log('[ByteCave P2P] Step 5: CID generated:', cid.slice(0, 16) + '...');
 
         const request: StoreRequest = {
           cid,
@@ -146,15 +229,23 @@ export class P2PProtocolClient {
           timestamp: authorization?.timestamp || Date.now(),
           authorization
         };
-        console.log('[ByteCave P2P] Step 4: Request prepared, size:', JSON.stringify(request).length, 'bytes');
+        console.log('[ByteCave P2P] Step 5: Request prepared, size:', JSON.stringify(request).length, 'bytes');
 
-        console.log('[ByteCave P2P] Step 5: Writing message to stream...');
+        console.log('[ByteCave P2P] Step 6: Writing message to stream...');
+        const writeStart = Date.now();
         await this.writeMessage(stream, request);
-        console.log('[ByteCave P2P] Step 6: Message written, waiting for response...');
+        const writeDuration = Date.now() - writeStart;
+        console.log('[ByteCave P2P] Request written in', writeDuration, 'ms');
+        
+        console.log('[ByteCave P2P] Step 7: Waiting for response from node...');
+        const readStart = Date.now();
         const response = await this.readMessage<StoreResponse>(stream);
-        console.log('[ByteCave P2P] Step 7: Response received:', response);
+        const readDuration = Date.now() - readStart;
+        console.log('[ByteCave P2P] Response received in', readDuration, 'ms:', response);
 
+        console.log('[ByteCave P2P] Step 8: Closing stream...');
         await stream.close();
+        console.log('[ByteCave P2P] Stream closed successfully');
 
         if (response?.success) {
           return { success: true, cid };
@@ -220,19 +311,58 @@ export class P2PProtocolClient {
   }
 
   /**
-   * Get health info from a peer via P2P stream
+   * Wait for a direct (non-relay) connection to a peer
+   * Returns true if direct connection is available, false if timeout
    */
-  async getHealthFromPeer(peerId: string): Promise<P2PHealthResponse | null> {
+  private async waitForDirectConnection(peerId: string, timeoutMs: number = 3000): Promise<boolean> {
+    if (!this.node) return false;
+    
+    const peerIdObj = peerIdFromString(peerId);
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < timeoutMs) {
+      const connections = this.node.getConnections(peerIdObj);
+      const hasDirectConnection = connections.some(conn => {
+        // Check if connection is NOT a relay circuit (direct WebRTC or WebSocket)
+        const isRelay = conn.remoteAddr.toString().includes('/p2p-circuit');
+        return !isRelay;
+      });
+      
+      if (hasDirectConnection) {
+        console.log('[ByteCave P2P] Direct connection established to', peerId.slice(0, 12));
+        return true;
+      }
+      
+      // Wait 100ms before checking again
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    console.warn('[ByteCave P2P] Timeout waiting for direct connection to', peerId.slice(0, 12));
+    return false;
+  }
+
+  /**
+   * Get health info from a peer via P2P stream
+   * Waits for direct connection upgrade before querying
+   */
+  async getHealthFromPeer(peerId: string, waitForDirect: boolean = true): Promise<P2PHealthResponse | null> {
     if (!this.node) {
       console.warn('[ByteCave P2P] No node available for health request');
       return null;
     }
 
     try {
-      
       // Convert string peerId to PeerId object
       const peerIdObj = peerIdFromString(peerId);
       
+      // Wait for DCUtR to upgrade connection to direct WebRTC
+      if (waitForDirect) {
+        const hasDirect = await this.waitForDirectConnection(peerId, 3000);
+        if (!hasDirect) {
+          console.warn('[ByteCave P2P] No direct connection available for health query to', peerId.slice(0, 12));
+          return null;
+        }
+      }
 
       const stream = await this.node.dialProtocol(peerIdObj, PROTOCOL_HEALTH);
 
@@ -244,7 +374,7 @@ export class P2PProtocolClient {
       return response;
 
     } catch (error: any) {
-      // console.error('[ByteCave P2P] Failed to get health from peer:', peerId.slice(0, 12), error);
+      console.error('[ByteCave P2P] Failed to get health from peer:', peerId.slice(0, 12), error.message || error);
       return null;
     }
   }

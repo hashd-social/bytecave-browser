@@ -31,44 +31,46 @@ yarn build
 - `dist/react/index.js` - React-specific exports
 - `dist/*.d.ts` - TypeScript type definitions
 
-## **CRITICAL: Git Workflow**
+## **CRITICAL: npm Publishing Workflow**
 
 ### After Making Changes
 **YOU MUST FOLLOW THIS WORKFLOW:**
 
-1. **Build the package**
+1. **Build and publish to npm**
    ```bash
+   cd bytecave-browser
    yarn build
+   npm publish --access public
    ```
+   - This automatically builds, commits to git, and publishes to npm registry
+   - Version is controlled in `package.json`
 
-2. **Commit changes to git**
-   ```bash
-   git add .
-   git commit -m "Description of changes"
-   ```
-
-3. **Push to git**
-   ```bash
-   git push
-   ```
-
-4. **Update dependent packages**
+2. **Update dependent packages**
    In `web/` or `dashboard/`:
    ```bash
-   yarn upgrade @hashd/bytecave-browser
+   yarn upgrade @gethashd/bytecave-browser@<version>
    ```
+   - Use specific version number from `package.json`
+   - Example: `yarn upgrade @gethashd/bytecave-browser@1.0.13`
 
 ### Why This Is Critical
-- `web` and `dashboard` install bytecave-browser from **git**, not from local files
-- If you don't push to git, dependent packages will use stale code
-- Even after rebuilding, changes won't appear until pushed and upgraded
+- `web` and `dashboard` install bytecave-browser from **npm registry**, not from git
+- If you don't publish to npm, dependent packages will use stale code
+- Even after rebuilding locally, changes won't appear until published and upgraded
 
 ### Common Mistake
 ❌ **WRONG**: Build bytecave-browser → Rebuild web/dashboard → Test
-- This will use OLD code because web/dashboard pull from git
+- This will use OLD code because web/dashboard pull from npm
 
-✅ **CORRECT**: Build bytecave-browser → Git commit & push → Upgrade in web/dashboard → Test
+✅ **CORRECT**: Build & publish to npm → Upgrade in web/dashboard → Test
 - This ensures latest code is used
+
+### Version Management
+- Bump version in `package.json` before publishing
+- Follow semantic versioning: MAJOR.MINOR.PATCH
+- Patch (1.0.x): Bug fixes
+- Minor (1.x.0): New features, backward compatible
+- Major (x.0.0): Breaking changes
 
 ## Key Architecture Concepts
 
@@ -98,20 +100,20 @@ Main client class for P2P storage operations:
 
 ### Web App (`/web`)
 - Uses bytecave-browser for vault storage
-- Installs from git: `@hashd/bytecave-browser`
-- After bytecave-browser changes: `yarn upgrade @hashd/bytecave-browser`
+- Installs from npm: `@gethashd/bytecave-browser`
+- After bytecave-browser changes: `yarn upgrade @gethashd/bytecave-browser@<version>`
 
 ### Dashboard (`/dashboard`)
 - Uses bytecave-browser for test storage
-- Installs from git: `@hashd/bytecave-browser`
-- After bytecave-browser changes: `yarn upgrade @hashd/bytecave-browser`
+- Installs from npm: `@gethashd/bytecave-browser`
+- After bytecave-browser changes: `yarn upgrade @gethashd/bytecave-browser@<version>`
 
 ## Testing Workflow
 
 ### After Code Changes
-1. Build: `yarn build`
-2. Commit and push to git
-3. In web/dashboard: `yarn upgrade @hashd/bytecave-browser`
+1. Bump version in `package.json`
+2. Build and publish: `yarn build && npm publish --access public`
+3. In web/dashboard: `yarn upgrade @gethashd/bytecave-browser@<version>`
 4. Rebuild web/dashboard: `yarn build`
 5. Hard refresh browser (Cmd+Shift+R) to clear cache
 6. Test storage functionality
@@ -121,9 +123,9 @@ Main client class for P2P storage operations:
 #### Stale Code in Web/Dashboard
 **Symptom**: Changes to bytecave-browser don't appear in web/dashboard
 **Solution**: 
-1. Verify bytecave-browser was pushed to git
-2. Run `yarn upgrade @hashd/bytecave-browser` in web/dashboard
-3. Check `node_modules/@hashd/bytecave-browser/package.json` version/commit
+1. Verify bytecave-browser was published to npm (check version on npmjs.com)
+2. Run `yarn upgrade @gethashd/bytecave-browser@<version>` in web/dashboard
+3. Check `node_modules/@gethashd/bytecave-browser/package.json` version matches
 4. Hard refresh browser
 
 #### Type Errors After Changes
