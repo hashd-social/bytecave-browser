@@ -160,8 +160,8 @@ export class ByteCaveClient {
           if (relayPeers.length > 0) {
             console.log('[ByteCave] Got', relayPeers.length, 'peers from relay HTTP endpoint');
             
-            // Dial each peer using their relay circuit multiaddrs
-            for (const peer of relayPeers) {
+            // Process all peers in parallel for faster discovery
+            const peerPromises = relayPeers.map(async (peer) => {
               try {
                 console.log('[ByteCave] Dialing peer:', peer.peerId.slice(0, 12) + '...');
                 
@@ -169,7 +169,7 @@ export class ByteCaveClient {
                 for (const addr of peer.multiaddrs) {
                   try {
                     const ma = multiaddr(addr);
-                    await this.node.dial(ma as any);
+                    await this.node!.dial(ma as any);
                     connected = true;
                     console.log('[ByteCave] ✓ Connected via relay circuit');
                     break;
@@ -190,12 +190,17 @@ export class ByteCaveClient {
                       nodeId: health.nodeId
                     });
                     console.log('[ByteCave] ✓ Discovered peer via HTTP relay:', health.nodeId || peer.peerId.slice(0, 12));
+                  } else {
+                    console.warn('[ByteCave] Health query returned null for peer:', peer.peerId.slice(0, 12));
                   }
                 }
               } catch (err: any) {
                 console.warn('[ByteCave] Failed to process peer from HTTP relay:', err.message);
               }
-            }
+            });
+            
+            // Wait for all peer connections and health queries to complete
+            await Promise.allSettled(peerPromises);
           }
         } catch (err: any) {
           console.warn('[ByteCave] HTTP relay discovery failed, falling back to P2P directory:', err.message);
