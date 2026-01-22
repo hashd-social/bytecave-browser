@@ -13,6 +13,7 @@ import { floodsub } from '@libp2p/floodsub';
 import { identify } from '@libp2p/identify';
 import { bootstrap } from '@libp2p/bootstrap';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
+import { dcutr } from '@libp2p/dcutr';
 import { multiaddr } from '@multiformats/multiaddr';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { fromString, toString } from 'uint8arrays';
@@ -102,6 +103,11 @@ export class ByteCaveClient {
         ],
         connectionEncrypters: [noise()],
         streamMuxers: [yamux()],
+        services: {
+          identify: identify(),
+          pubsub: floodsub(),
+          dcutr: dcutr() as any
+        },
         connectionGater: {
           denyDialMultiaddr: () => false,
           denyDialPeer: () => false,
@@ -112,10 +118,6 @@ export class ByteCaveClient {
           denyInboundUpgradedConnection: () => false,
           denyOutboundUpgradedConnection: () => false,
           filterMultiaddrForPeer: () => true
-        },
-        services: {
-          identify: identify(),
-          pubsub: floodsub()
         },
         peerDiscovery: bootstrapPeers.length > 0 ? [
           bootstrap({ list: bootstrapPeers })
