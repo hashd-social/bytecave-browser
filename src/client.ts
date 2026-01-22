@@ -181,20 +181,9 @@ export class ByteCaveClient {
                 }
                 
                 if (connected) {
-                  // Fetch health data
-                  const health = await p2pProtocolClient.getHealthFromPeer(peer.peerId);
-                  if (health) {
-                    this.knownPeers.set(peer.peerId, {
-                      peerId: peer.peerId,
-                      publicKey: health.publicKey || '',
-                      contentTypes: health.contentTypes || 'all',
-                      connected: true,
-                      nodeId: health.nodeId
-                    });
-                    console.log('[ByteCave] ✓ Discovered peer via HTTP relay:', health.nodeId || peer.peerId.slice(0, 12));
-                  } else {
-                    console.warn('[ByteCave] Health query returned null for peer:', peer.peerId.slice(0, 12));
-                  }
+                  // Just mark as discovered - floodsub announcements will provide full health data
+                  console.log('[ByteCave] ✓ Connected to peer via HTTP relay:', peer.peerId.slice(0, 12));
+                  console.log('[ByteCave] Waiting for peer announcement with health data...');
                 }
               } catch (err: any) {
                 console.warn('[ByteCave] Failed to process peer from HTTP relay:', err.message);
