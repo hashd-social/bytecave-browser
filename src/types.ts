@@ -10,6 +10,7 @@ export interface ByteCaveConfig {
   directNodeAddrs?: string[]; // Direct node multiaddrs for WebRTC connections (no relay)
   relayPeers?: string[]; // Relay node multiaddrs for circuit relay (e.g., /ip4/127.0.0.1/tcp/4002/ws/p2p/...)
   relayHttpUrl?: string; // Optional - Relay HTTP URL for instant peer discovery (e.g., http://localhost:9090)
+  relayWsUrl?: string; // Optional - Relay WebSocket URL for browser storage (e.g., ws://localhost:4003)
   maxPeers?: number;
   connectionTimeout?: number;
 }

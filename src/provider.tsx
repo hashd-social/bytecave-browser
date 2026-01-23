@@ -56,6 +56,7 @@ interface ByteCaveProviderProps {
   appId: string;
   relayPeers?: string[];
   relayHttpUrl?: string;
+  relayWsUrl?: string;
   directNodeAddrs?: string[];
 }
 
@@ -69,6 +70,7 @@ export function ByteCaveProvider({
   appId,
   relayPeers = [],
   relayHttpUrl,
+  relayWsUrl,
   directNodeAddrs = []
 }: ByteCaveProviderProps) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
@@ -120,6 +122,7 @@ export function ByteCaveProvider({
         directNodeAddrs,
         relayPeers,
         relayHttpUrl,
+        relayWsUrl,
         maxPeers: 10,
         connectionTimeout: 30000
       });

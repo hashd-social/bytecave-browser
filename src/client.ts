@@ -20,6 +20,7 @@ import { fromString, toString } from 'uint8arrays';
 import { ethers } from 'ethers';
 import { ContractDiscovery, RelayDiscovery } from './discovery.js';
 import { p2pProtocolClient } from './p2p-protocols.js';
+import { StorageWebSocketClient } from './storage-websocket.js';
 import { CONTENT_REGISTRY_ABI } from './contracts/ContentRegistry.js';
 import type { 
   ByteCaveConfig, 
@@ -37,6 +38,7 @@ export class ByteCaveClient {
   private node: Libp2p | null = null;
   private contractDiscovery?: ContractDiscovery; // Optional - only if contract address provided
   private relayDiscovery?: RelayDiscovery; // Optional - for fast peer discovery via relay
+  private storageWsClient?: StorageWebSocketClient; // Optional - for WebSocket storage via relay
   private config: ByteCaveConfig;
   private knownPeers: Map<string, PeerInfo> = new Map();
   private connectionState: ConnectionState = 'disconnected';
@@ -423,35 +425,6 @@ export class ByteCaveClient {
    * @param signer - Ethers signer for authorization (optional, but required for most nodes)
    */
   async store(data: Uint8Array | ArrayBuffer, mimeType?: string, signer?: any): Promise<StoreResult> {
-    if (!this.node) {
-      return { success: false, error: 'P2P node not initialized' };
-    }
-
-    // Get all connected peers
-    const allPeers = this.node.getPeers();
-    const connectedPeerIds = allPeers.map(p => p.toString());
-    
-    console.log('[ByteCave] Store - connected storage peers:', connectedPeerIds.length);
-    console.log('[ByteCave] Store - knownPeers with registration info:', this.knownPeers.size);
-    
-    if (connectedPeerIds.length === 0) {
-      return { success: false, error: 'No storage peers available' };
-    }
-    
-    // Prioritize registered peers from knownPeers (populated via floodsub announcements)
-    // If no registered peers known yet, use all connected peers
-    const registeredPeerIds = Array.from(this.knownPeers.values())
-      .filter(p => p.isRegistered && connectedPeerIds.includes(p.peerId))
-      .map(p => p.peerId);
-    
-    const storagePeerIds = registeredPeerIds.length > 0 
-      ? [...registeredPeerIds, ...connectedPeerIds.filter(id => !registeredPeerIds.includes(id))]
-      : connectedPeerIds;
-    
-    console.log('[ByteCave] Store - peer order (registered first):', 
-      storagePeerIds.map(id => id.slice(0, 12)).join(', '),
-      '(registered:', registeredPeerIds.length, ')');
-
     const dataArray = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
 
     // Validate file size (5MB limit)
@@ -472,7 +445,10 @@ export class ByteCaveClient {
         const { ethers } = await import('ethers');
         
         const sender = await signer.getAddress();
-        const contentHash = ethers.keccak256(dataArray);
+        // Use SHA-256 to match what the node calculates
+        const hashBuffer = await crypto.subtle.digest('SHA-256', dataArray as BufferSource);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const contentHash = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         const timestamp = Date.now();
         const nonce = Math.random().toString(36).substring(2, 15) + 
                       Math.random().toString(36).substring(2, 15);
@@ -499,7 +475,72 @@ Nonce: ${nonce}`;
       }
     }
 
-    // Try each storage peer until one succeeds
+    // Try WebSocket storage first if relay WS URL is configured
+    if (this.config.relayWsUrl) {
+      console.log('[ByteCave] Attempting WebSocket storage via relay');
+      
+      try {
+        if (!this.storageWsClient) {
+          this.storageWsClient = new StorageWebSocketClient(this.config.relayWsUrl);
+        }
+
+        const wsAuth = authorization ? {
+          signature: authorization.signature,
+          address: authorization.sender,
+          timestamp: authorization.timestamp,
+          nonce: authorization.nonce,
+          appId: authorization.appId,
+          contentHash: authorization.contentHash
+        } : undefined;
+
+        const result = await this.storageWsClient.store({
+          data: dataArray,
+          contentType: mimeType || 'application/octet-stream',
+          authorization: wsAuth,
+          timeout: 30000
+        });
+
+        if (result.success && result.cid) {
+          console.log('[ByteCave] ✓ WebSocket storage successful:', result.cid);
+          return {
+            success: true,
+            cid: result.cid,
+            peerId: 'relay-ws'
+          };
+        }
+
+        console.warn('[ByteCave] WebSocket storage failed:', result.error);
+      } catch (err: any) {
+        console.warn('[ByteCave] WebSocket storage exception:', err.message);
+      }
+    }
+
+    // Fallback to P2P storage
+    if (!this.node) {
+      return { success: false, error: 'WebSocket storage failed and P2P node not initialized' };
+    }
+
+    console.log('[ByteCave] Falling back to P2P storage');
+    
+    // Get all connected peers
+    const allPeers = this.node.getPeers();
+    const connectedPeerIds = allPeers.map(p => p.toString());
+    
+    console.log('[ByteCave] Store - connected storage peers:', connectedPeerIds.length);
+    
+    if (connectedPeerIds.length === 0) {
+      return { success: false, error: 'WebSocket storage failed and no P2P peers available' };
+    }
+    
+    // Prioritize registered peers from knownPeers
+    const registeredPeerIds = Array.from(this.knownPeers.values())
+      .filter(p => p.isRegistered && connectedPeerIds.includes(p.peerId))
+      .map(p => p.peerId);
+    
+    const storagePeerIds = registeredPeerIds.length > 0 
+      ? [...registeredPeerIds, ...connectedPeerIds.filter(id => !registeredPeerIds.includes(id))]
+      : connectedPeerIds;
+    
     const errors: string[] = [];
     for (const peerId of storagePeerIds) {
       console.log('[ByteCave] Attempting P2P store to peer:', peerId.slice(0, 12) + '...');
@@ -532,8 +573,8 @@ Nonce: ${nonce}`;
       }
     }
     
-    console.error('[ByteCave] All storage peers failed. Errors:', errors);
-    return { success: false, error: `All storage peers failed: ${errors.join('; ')}` };
+    console.error('[ByteCave] All storage methods failed. Errors:', errors);
+    return { success: false, error: `All storage methods failed: ${errors.join('; ')}` };
   }
 
   /**
@@ -881,7 +922,9 @@ Nonce: ${nonce}`;
       blobCount: announcement.blobCount,
       timestamp: announcement.timestamp,
       multiaddrs: announcement.multiaddrs,
-      relayAddrs: announcement.relayAddrs || (existing as any)?.relayAddrs
+      relayAddrs: announcement.relayAddrs || (existing as any)?.relayAddrs,
+      isRegistered: announcement.isRegistered,
+      onChainNodeId: announcement.onChainNodeId
     };
 
     this.knownPeers.set(announcement.peerId, peerInfo);
