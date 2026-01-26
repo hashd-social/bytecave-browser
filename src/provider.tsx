@@ -39,9 +39,9 @@ interface ByteCaveContextValue {
   appId: string;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
-  store: (data: Uint8Array, mimeType?: string, signer?: any) => Promise<StoreResult>;
+  store: (data: Uint8Array, mimeType?: string, signer?: any, hashIdToken?: number) => Promise<StoreResult>;
   retrieve: (cid: string) => Promise<RetrieveResult>;
-  registerContent: (cid: string, appId: string, signer: any) => Promise<{ success: boolean; txHash?: string; error?: string }>;
+  registerContent: (cid: string, appId: string, hashIdToken: string, signer: any) => Promise<{ success: boolean; txHash?: string; error?: string }>;
   getNodeHealth: (peerId: string) => Promise<NodeHealth | null>;
   error: string | null;
 }
@@ -224,11 +224,11 @@ export function ByteCaveProvider({
     }
   };
 
-  const store = async (data: Uint8Array, mimeType?: string, signer?: any): Promise<StoreResult> => {
+  const store = async (data: Uint8Array, mimeType?: string, signer?: any, hashIdToken?: number): Promise<StoreResult> => {
     if (!globalClient) {
       return { success: false, error: 'Client not initialized' };
     }
-    return (globalClient as any).store(data, mimeType, signer);
+    return (globalClient as any).store(data, mimeType, signer, hashIdToken);
   };
 
   const retrieve = async (cid: string): Promise<RetrieveResult> => {
@@ -245,11 +245,11 @@ export function ByteCaveProvider({
     return (globalClient as any).getNodeHealth(peerId);
   };
 
-  const registerContent = async (cid: string, appId: string, signer: any): Promise<{ success: boolean; txHash?: string; error?: string }> => {
+  const registerContent = async (cid: string, appId: string, hashIdToken: string, signer: any): Promise<{ success: boolean; txHash?: string; error?: string }> => {
     if (!globalClient) {
       return { success: false, error: 'Client not initialized' };
     }
-    return globalClient.registerContent(cid, appId, signer);
+    return globalClient.registerContent(cid, appId, hashIdToken, signer);
   };
 
   const value: ByteCaveContextValue = {

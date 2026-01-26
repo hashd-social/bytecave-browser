@@ -423,8 +423,9 @@ export class ByteCaveClient {
    * @param data - Data to store
    * @param mimeType - MIME type (optional, defaults to 'application/octet-stream')
    * @param signer - Ethers signer for authorization (optional, but required for most nodes)
+   * @param hashIdToken - HashID NFT token ID (optional, for content attribution)
    */
-  async store(data: Uint8Array | ArrayBuffer, mimeType?: string, signer?: any): Promise<StoreResult> {
+  async store(data: Uint8Array | ArrayBuffer, mimeType?: string, signer?: any, hashIdToken?: number): Promise<StoreResult> {
     const dataArray = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
 
     // Validate file size (5MB limit)
@@ -496,6 +497,7 @@ Nonce: ${nonce}`;
         const result = await this.storageWsClient.store({
           data: dataArray,
           contentType: mimeType || 'application/octet-stream',
+          hashIdToken,
           authorization: wsAuth,
           timeout: 30000
         });
@@ -551,7 +553,8 @@ Nonce: ${nonce}`;
           dataArray,
           mimeType || 'application/octet-stream',
           authorization,
-          false // shouldVerifyOnChain - false for browser test storage
+          false, // shouldVerifyOnChain - false for browser test storage
+          hashIdToken
         );
 
         if (result.success && result.cid) {
@@ -647,6 +650,7 @@ Nonce: ${nonce}`;
   async registerContent(
     cid: string,
     appId: string,
+    hashIdToken: string,
     signer: ethers.Signer
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
     if (!this.config.contentRegistryAddress) {
@@ -672,7 +676,7 @@ Nonce: ${nonce}`;
         signer
       );
 
-      const tx = await contract.registerContent(cid, appId);
+      const tx = await contract.registerContent(cid, appId, hashIdToken);
       console.log('[ByteCave] ContentRegistry transaction sent:', tx.hash);
 
       const receipt = await tx.wait();

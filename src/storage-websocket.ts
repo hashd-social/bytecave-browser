@@ -8,6 +8,7 @@ interface StorageRequestMessage {
   requestId: string;
   data: string; // base64
   contentType: string;
+  hashIdToken?: number;
   authorization?: {
     signature: string;
     address: string;
@@ -31,6 +32,7 @@ type Message = StorageRequestMessage | StorageResponseMessage;
 export interface StoreViaWebSocketOptions {
   data: Uint8Array;
   contentType: string;
+  hashIdToken?: number;
   authorization?: {
     signature: string;
     address: string;
@@ -124,6 +126,7 @@ export class StorageWebSocketClient {
       requestId,
       data: base64Data,
       contentType: options.contentType,
+      hashIdToken: options.hashIdToken,
       authorization: options.authorization
     };
 
