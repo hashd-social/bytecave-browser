@@ -62,7 +62,7 @@ export function useHashdUrl(hashdUrl: string | null | undefined): UseHashdUrlRes
         URL.revokeObjectURL(blobUrl);
       }
     };
-  }, [hashdUrl, retrieve]);
+  }, [hashdUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { blobUrl, loading, error };
 }

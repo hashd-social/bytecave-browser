@@ -22,6 +22,7 @@ export interface PeerInfo {
   connected: boolean;
   latency?: number;
   nodeId?: string;
+  nodeUrl?: string;
   isRegistered?: boolean;
   owner?: string;
 }

@@ -476,171 +476,84 @@ Nonce: ${nonce}`;
       }
     }
 
-    // Try WebSocket storage first if relay WS URL is configured
-    if (this.config.relayWsUrl) {
-      console.log('[ByteCave] Attempting WebSocket storage via relay');
-      
-      try {
-        if (!this.storageWsClient) {
-          this.storageWsClient = new StorageWebSocketClient(this.config.relayWsUrl);
-        }
+    // Use WebSocket relay for storage (simpler connection management than direct P2P)
+    if (!this.config.relayWsUrl) {
+      return { success: false, error: 'WebSocket relay URL not configured' };
+    }
 
-        const wsAuth = authorization ? {
-          signature: authorization.signature,
-          address: authorization.sender,
-          timestamp: authorization.timestamp,
-          nonce: authorization.nonce,
-          appId: authorization.appId,
-          contentHash: authorization.contentHash
-        } : undefined;
-
-        const result = await this.storageWsClient.store({
-          data: dataArray,
-          contentType: mimeType || 'application/octet-stream',
-          hashIdToken,
-          authorization: wsAuth,
-          timeout: 30000
-        });
-
-        if (result.success && result.cid) {
-          console.log('[ByteCave] ✓ WebSocket storage successful:', result.cid);
-          return {
-            success: true,
-            cid: result.cid,
-            peerId: 'relay-ws'
-          };
-        }
-
-        console.warn('[ByteCave] WebSocket storage failed:', result.error);
-      } catch (err: any) {
-        console.warn('[ByteCave] WebSocket storage exception:', err.message);
+    console.log('[ByteCave] Storing via WebSocket relay');
+    
+    try {
+      if (!this.storageWsClient) {
+        this.storageWsClient = new StorageWebSocketClient(this.config.relayWsUrl);
       }
-    }
 
-    // Fallback to P2P storage
-    if (!this.node) {
-      return { success: false, error: 'WebSocket storage failed and P2P node not initialized' };
-    }
+      const wsAuth = authorization ? {
+        signature: authorization.signature,
+        address: authorization.sender,
+        timestamp: authorization.timestamp,
+        nonce: authorization.nonce,
+        appId: authorization.appId,
+        contentHash: authorization.contentHash
+      } : undefined;
 
-    console.log('[ByteCave] Falling back to P2P storage');
-    
-    // Get all connected peers
-    const allPeers = this.node.getPeers();
-    const connectedPeerIds = allPeers.map(p => p.toString());
-    
-    console.log('[ByteCave] Store - connected storage peers:', connectedPeerIds.length);
-    
-    if (connectedPeerIds.length === 0) {
-      return { success: false, error: 'WebSocket storage failed and no P2P peers available' };
-    }
-    
-    // Prioritize registered peers from knownPeers
-    const registeredPeerIds = Array.from(this.knownPeers.values())
-      .filter(p => p.isRegistered && connectedPeerIds.includes(p.peerId))
-      .map(p => p.peerId);
-    
-    const storagePeerIds = registeredPeerIds.length > 0 
-      ? [...registeredPeerIds, ...connectedPeerIds.filter(id => !registeredPeerIds.includes(id))]
-      : connectedPeerIds;
-    
-    const errors: string[] = [];
-    for (const peerId of storagePeerIds) {
-      console.log('[ByteCave] Attempting P2P store to peer:', peerId.slice(0, 12) + '...');
-      
-      try {
-        const result = await p2pProtocolClient.storeToPeer(
-          peerId,
-          dataArray,
-          mimeType || 'application/octet-stream',
-          authorization,
-          false, // shouldVerifyOnChain - false for browser test storage
-          hashIdToken
-        );
+      const result = await this.storageWsClient.store({
+        data: dataArray,
+        contentType: mimeType || 'application/octet-stream',
+        hashIdToken,
+        authorization: wsAuth,
+        timeout: 30000
+      });
 
-        if (result.success && result.cid) {
-          console.log('[ByteCave] ✓ P2P store successful:', result.cid);
-          return { 
-            success: true, 
-            cid: result.cid, 
-            peerId 
-          };
-        }
-        
-        const errorMsg = `${peerId.slice(0, 12)}: ${result.error}`;
-        console.warn('[ByteCave] ✗ P2P store failed:', errorMsg);
-        errors.push(errorMsg);
-      } catch (err: any) {
-        const errorMsg = `${peerId.slice(0, 12)}: ${err.message}`;
-        console.error('[ByteCave] ✗ P2P store exception:', errorMsg);
-        errors.push(errorMsg);
+      if (result.success && result.cid) {
+        console.log('[ByteCave] ✓ WebSocket storage successful:', result.cid);
+        return {
+          success: true,
+          cid: result.cid,
+          peerId: 'relay-ws'
+        };
       }
+
+      console.warn('[ByteCave] WebSocket storage failed:', result.error);
+      return { success: false, error: result.error || 'WebSocket storage failed' };
+    } catch (err: any) {
+      console.error('[ByteCave] WebSocket storage exception:', err.message);
+      return { success: false, error: err.message };
     }
-    
-    console.error('[ByteCave] All storage methods failed. Errors:', errors);
-    return { success: false, error: `All storage methods failed: ${errors.join('; ')}` };
   }
 
   /**
-   * Retrieve ciphertext from a node via P2P only (no HTTP fallback)
+   * Retrieve ciphertext from a node via WebSocket relay
    */
   async retrieve(cid: string): Promise<RetrieveResult> {
-    if (!this.node) {
-      console.error('[ByteCave] Retrieve failed: P2P node not initialized');
-      return { success: false, error: 'P2P node not initialized' };
+    if (!this.config.relayWsUrl) {
+      return { success: false, error: 'WebSocket relay URL not configured' };
     }
 
-    const libp2pPeers = this.node.getPeers();
-    console.log('[ByteCave] Retrieve - libp2p peers:', libp2pPeers.length);
-    console.log('[ByteCave] Retrieve - known peers:', this.knownPeers.size);
-    console.log('[ByteCave] Retrieve - node status:', this.node.status);
+    console.log('[ByteCave] Retrieving via WebSocket relay, CID:', cid);
     
-    if (libp2pPeers.length === 0) {
-      console.warn('[ByteCave] Retrieve failed: No libp2p peers connected, but have', this.knownPeers.size, 'known peers');
-      return { success: false, error: 'No connected peers available' };
-    }
-
-    // Find which peers have this CID
-    const peersWithCid: string[] = [];
-    
-    for (const peerId of libp2pPeers) {
-      const peerIdStr = peerId.toString();
-      
-      try {
-        const hasCid = await p2pProtocolClient.peerHasCid(peerIdStr, cid);
-        
-        if (hasCid) {
-          peersWithCid.push(peerIdStr);
-        }
-      } catch (error: any) {
-        // Skip peers that don't support the protocol
+    try {
+      if (!this.storageWsClient) {
+        this.storageWsClient = new StorageWebSocketClient(this.config.relayWsUrl);
       }
-    }
 
-    if (peersWithCid.length === 0) {
-      return { success: false, error: 'Blob not found on any connected peer' };
-    }
+      const result = await this.storageWsClient.retrieve(cid, 30000);
 
-    // Try to retrieve from peers that have the CID
-    for (const peerId of peersWithCid) {
-      try {
-        const timeoutPromise = new Promise<null>((_, reject) => 
-          setTimeout(() => reject(new Error('Retrieval timeout after 10s')), 10000)
-        );
-        
-        const result = await Promise.race([
-          p2pProtocolClient.retrieveFromPeer(peerId, cid),
-          timeoutPromise
-        ]);
-        
-        if (result) {
-          return { success: true, data: result.data, peerId };
-        }
-      } catch (error: any) {
-        // Continue to next peer
+      if (result.success && result.data) {
+        console.log('[ByteCave] ✓ WebSocket retrieval successful:', cid);
+        return {
+          success: true,
+          data: result.data,
+          peerId: 'relay-ws'
+        };
       }
-    }
 
-    return { success: false, error: 'Failed to retrieve blob from peers that have it' };
+      console.warn('[ByteCave] WebSocket retrieval failed:', result.error);
+      return { success: false, error: result.error || 'Retrieval failed' };
+    } catch (err: any) {
+      console.error('[ByteCave] WebSocket retrieval exception:', err.message);
+      return { success: false, error: err.message };
+    }
   }
 
   /**
@@ -676,7 +589,17 @@ Nonce: ${nonce}`;
         signer
       );
 
-      const tx = await contract.registerContent(cid, appId, hashIdToken);
+      // Convert CID to bytes32 (CID is already a SHA-256 hash, don't double-hash it)
+      const cidBytes32 = '0x' + cid;
+      
+      // Hash appId to bytes32
+      const appIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(appId));
+      
+      // Get signer address for owner parameter
+      const owner = await signer.getAddress();
+
+      // Use bytes32 overload to avoid double-hashing the CID
+      const tx = await contract.registerContent(cidBytes32, owner, appIdBytes32, hashIdToken);
       console.log('[ByteCave] ContentRegistry transaction sent:', tx.hash);
 
       const receipt = await tx.wait();

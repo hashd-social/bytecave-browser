@@ -690,6 +690,23 @@
     uint8arrays "^5.1.0"
     ws "^8.18.3"
 
+"@libp2p/webtransport@^6.0.12":
+  version "6.0.12"
+  resolved "https://registry.yarnpkg.com/@libp2p/webtransport/-/webtransport-6.0.12.tgz#6ee3090f0dcdbd64e0673fdbf4d621e37ac363ef"
+  integrity sha512-q64Q15H4slv+Lo7wReJX65wFUYJ+QGlm5ZVBh/+ByQVf9I8UeiZivY3LEzhAq2OtvunE3C/1MtCAJ0JXotgUVA==
+  dependencies:
+    "@chainsafe/libp2p-noise" "^17.0.0"
+    "@libp2p/interface" "^3.1.0"
+    "@libp2p/peer-id" "^6.0.4"
+    "@libp2p/utils" "^7.0.10"
+    "@multiformats/multiaddr" "^13.0.1"
+    "@multiformats/multiaddr-matcher" "^3.0.1"
+    multiformats "^13.3.6"
+    progress-events "^1.0.1"
+    race-signal "^2.0.0"
+    uint8arraylist "^2.4.8"
+    uint8arrays "^5.1.0"
+
 "@multiformats/dns@^1.0.6":
   version "1.0.11"
   resolved "https://registry.yarnpkg.com/@multiformats/dns/-/dns-1.0.11.tgz#dcab187c159678bddf6a1a9bbb387ff0213bbd1f"
@@ -1855,7 +1872,7 @@ ms@^3.0.0-canary.1:
   resolved "https://registry.yarnpkg.com/ms/-/ms-3.0.0-canary.202508261828.tgz#be2e8829740af5bd1db8605ca4fcb0d1ff44c11f"
   integrity sha512-NotsCoUCIUkojWCzQff4ttdCfIPoA1UGZsyQbi7KmqkNRfKCrvga8JJi2PknHymHOuor0cJSn/ylj52Cbt2IrQ==
 
-multiformats@^13.0.0, multiformats@^13.4.0, multiformats@^13.4.1:
+multiformats@^13.0.0, multiformats@^13.3.6, multiformats@^13.4.0, multiformats@^13.4.1:
   version "13.4.2"
   resolved "https://registry.yarnpkg.com/multiformats/-/multiformats-13.4.2.tgz#309ee17d3946db9a6954cf6832aeb2b4b10dd0f3"
   integrity sha512-eh6eHCrRi1+POZ3dA+Dq1C6jhP1GNtr9CRINMb67OKzqW9I5DUuZM/3jLPlzhgpGeiNUlEGEbkCYChXMCc/8DQ==
