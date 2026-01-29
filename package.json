@@ -1,6 +1,6 @@
 {
   "name": "@gethashd/bytecave-browser",
-  "version": "1.0.47",
+  "version": "1.0.59",
   "description": "ByteCave browser client for WebRTC P2P connections to storage nodes",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
