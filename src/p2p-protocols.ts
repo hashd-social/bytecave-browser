@@ -75,10 +75,9 @@ export interface StoreRequest {
   mimeType: string;
   ciphertext: string; // base64 encoded
   appId?: string;
-  shouldVerifyOnChain?: boolean;
   sender?: string;
   timestamp?: number;
-  hashIdToken?: number;
+  hashIdToken?: string;
   metadata?: Record<string, any>;
   authorization?: any;
 }
@@ -107,8 +106,7 @@ export class P2PProtocolClient {
     ciphertext: Uint8Array,
     mimeType: string,
     authorization?: any,
-    shouldVerifyOnChain?: boolean,
-    hashIdToken?: number
+    hashIdToken?: string
   ): Promise<StoreResponse> {
     if (!this.node) {
       return { success: false, error: 'P2P node not initialized' };
@@ -150,41 +148,20 @@ export class P2PProtocolClient {
           console.warn('[ByteCave P2P] Could not get peer info from peerStore:', e);
         }
         
-        // Step 2: Wait for connection upgrade from limited relay circuit to full WebRTC
-        console.log('[ByteCave P2P] Step 2: Checking if connection upgrade needed...');
+        // Step 2: Use existing connection (relay circuit or direct)
+        console.log('[ByteCave P2P] Step 2: Using existing connection...');
         
         if (existingConns.length === 0) {
           throw new Error('No connection to peer - cannot open protocol stream');
         }
         
-        let connection = existingConns[0];
+        const connection = existingConns[0];
         const isRelayCircuit = connection.remoteAddr.toString().includes('/p2p-circuit');
-        console.log('[ByteCave P2P] Connection type:', isRelayCircuit ? 'relay circuit (limited)' : 'direct');
+        console.log('[ByteCave P2P] Connection type:', isRelayCircuit ? 'relay circuit' : 'direct');
         console.log('[ByteCave P2P] Connection address:', connection.remoteAddr.toString());
         
-        // If it's a relay circuit, wait for DCUtR to upgrade to direct WebRTC
-        if (isRelayCircuit) {
-          console.log('[ByteCave P2P] Waiting for DCUtR to upgrade relay circuit to direct WebRTC...');
-          const upgradeStart = Date.now();
-          const hasDirectConnection = await this.waitForDirectConnection(peerId, 5000);
-          const upgradeDuration = Date.now() - upgradeStart;
-          
-          if (!hasDirectConnection) {
-            console.error('[ByteCave P2P] DCUtR upgrade failed after', upgradeDuration, 'ms');
-            throw new Error('Cannot use storage protocol - relay circuit upgrade to WebRTC failed');
-          }
-          
-          console.log('[ByteCave P2P] DCUtR upgrade successful after', upgradeDuration, 'ms');
-          
-          // Get the new direct connection
-          const directConns = this.node!.getConnections(peerIdObj);
-          const directConn = directConns.find(conn => !conn.remoteAddr.toString().includes('/p2p-circuit'));
-          if (!directConn) {
-            throw new Error('DCUtR reported success but no direct connection found');
-          }
-          connection = directConn;
-          console.log('[ByteCave P2P] Using direct connection:', connection.remoteAddr.toString());
-        }
+        // Note: We allow both relay circuits and direct connections
+        // Relay circuits work fine for storage operations via the relay
         
         // Step 3: Open protocol stream on the connection
         console.log('[ByteCave P2P] Step 3: Opening protocol stream...');
@@ -226,7 +203,6 @@ export class P2PProtocolClient {
           mimeType,
           ciphertext: this.uint8ArrayToBase64(ciphertext),
           appId: authorization?.appId || 'hashd',
-          shouldVerifyOnChain: shouldVerifyOnChain ?? false,
           sender: authorization?.sender,
           timestamp: authorization?.timestamp || Date.now(),
           hashIdToken,

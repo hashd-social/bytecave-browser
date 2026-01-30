@@ -215,8 +215,23 @@ export class StorageWebSocketClient {
   }
 
   async retrieve(cid: string, timeout: number = 30000): Promise<{ success: boolean; data?: Uint8Array; mimeType?: string; error?: string }> {
+    // Ensure connection is established
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       await this.connect();
+    }
+    
+    // Wait for WebSocket to be in OPEN state (with timeout)
+    const connectionTimeout = 5000; // 5 seconds max wait
+    const startTime = Date.now();
+    while ((!this.ws || this.ws.readyState !== WebSocket.OPEN) && (Date.now() - startTime < connectionTimeout)) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return {
+        success: false,
+        error: 'WebSocket connection timeout'
+      };
     }
 
     const requestId = Math.random().toString(36).substring(2, 15) + 

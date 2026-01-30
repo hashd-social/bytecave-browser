@@ -266,6 +266,19 @@ export function ByteCaveProvider({
     error
   };
 
+  // Expose retrieve function on window for non-React code
+  useEffect(() => {
+    (window as any).__BYTECAVE_CONTEXT__ = {
+      retrieve,
+      store,
+      isConnected: connectionState === 'connected'
+    };
+    
+    return () => {
+      delete (window as any).__BYTECAVE_CONTEXT__;
+    };
+  }, [retrieve, store, connectionState]);
+
   return (
     <ByteCaveContext.Provider value={value}>
       {children}
