@@ -1,6 +1,10 @@
 # ByteCave Browser Client
 
-Browser-compatible P2P client library for connecting to the ByteCave decentralized storage network via WebRTC and WebSockets.
+ByteCave Browser is a client-side library for connecting web applications directly to the ByteCave storage network. It runs in the browser and handles peer discovery, encrypted data transfer, and interaction with ByteCave nodes using libp2p and WebRTC, without relying on centralized gateways or HTTP APIs.
+
+The browser client never holds plaintext data at rest and never manages long-term encryption keys. All data is encrypted by the application before being sent to the network, and retrieval is content-addressed and peer-to-peer. When direct connections aren’t possible, ByteCave Browser can fall back to relays for connectivity, but those relays are not trusted and only ever see encrypted traffic.
+
+ByteCave Browser is designed to be embedded into other applications — including the HASHD frontend — so apps can store and retrieve encrypted blobs, messages, or media using the same storage network and identity assumptions. It’s not specific to messaging and doesn’t assume any particular application logic, making it a general-purpose browser entry point into the ByteCave network.
 
 ## Features
 
@@ -90,9 +94,9 @@ relayPeers: [
 
 **Getting Relay Multiaddrs:**
 
-From relay HTTP info endpoint:
+From relay HTTP health endpoint:
 ```bash
-curl http://relay.example.com:9090/info
+curl http://relay.example.com:9090/health
 ```
 
 Or from relay node logs:
